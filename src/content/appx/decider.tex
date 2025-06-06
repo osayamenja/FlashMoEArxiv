@@ -1,0 +1,131 @@
+%! Date = 5/14/25
+\section{Automated Parallelism Optimizer}\label{sec:automated-parallelism-optimizer}
+\subsection{Notation}\label{subsec:notation}
+\begin{table}[!h]
+    \centering
+    \caption{Notation for this work}
+    \begin{tabular}{ll}
+        \toprule
+        \textbf{Notation} & \textbf{Description} \\
+        \midrule
+        $G$ & Network topology, $G = (V, E)$\\
+        $g$ & Worker groups, $g \subseteq G$, $g = (V_g, E_g)$ \\
+        $\mathcal{G}$ & Set of all $g$, note $ 1 \leq |\mathcal{G}| \leq |V|$ \\
+        $\alpha_{ij}$ & $\alpha$ cost of workers $i$ and $j$ \\
+        $\beta_{ij}$ & $\beta$ cost of workers $i$ and $j$\\
+        $\mathcal{M}_j$ & Memory capacity for worker $j$\\
+        $\mathcal{X}$ & Set of all experts \\
+        $\mathcal{X}_m$ & Total Memory cost of all experts\\
+        $\pi(g)$ & Expert compute cost of group $g$\\
+        $f_x$ & Compute cost for expert $x$\\
+        $\mathcal{F}_j$ & Processing rate of worker $j$\\
+        $\mathcal{C}_j$ & Communication cost for worker $j$\\
+    \end{tabular}
+    \label{tab:LPnotation}
+\end{table}
+
+Lets define $\gamma(\omega) \geq 1$ as the frequency, due to Distributed Data Parallelism (DDP),
+at which the MoE layer is executed in a single iteration.
+\begin{equation}\label{eq:gamma}
+\gamma(\omega) = \frac{(2 + r)\cdot L \cdot B}{i \cdot \omega \cdot b}
+\end{equation}
+Note that $r$: activation re-computation amount~\cite{megatron-lm}, $L$: num of layers, $B$: global batch,
+$i$: MoE layer frequency, $b$: mini-batch, and
+$\omega$: effective world size $\omega \in [0, W]$ (see \S~\ref{subsec:effective}).
+Also define $\eta$ as the frequency of communicating over an edge,
+which is $4$ for this work due to duplex communication occurring for each of the two rounds in Distributed MoE.
+
+\SetKwInput{KwRequire}{Require}
+\SetKwInput{KwResult}{Result}
+\SetKwInput{KwInput}{Input}
+\SetKw{kwAnd}{and}
+\SetKw{kwOr}{or}
+\SetKw{kwTrue}{True}
+\SetKw{kwFalse}{False}
+\begin{algorithm}[!h]
+    \DontPrintSemicolon
+    \caption{\emph{DeciderGroup}: Generates topology-aware expert parallel groups}\label{alg:dg}
+    \KwRequire{$G=(V,\;E)$}
+    \KwResult{$\mathcal{G}$: Groups}
+    \Begin{
+        $\text{Compute weights and sort } E \text{ ascending}$\;
+        $\mathcal{G} \gets \{V\}, \text{ Initialize disjoint-set with } V $\;
+        \While{$E.size() > 0$}{
+            $(u, v) \gets E.pop()$\;
+            $g_u \gets \mathcal{G}.\text{FIND}(u)$\;
+            $g_v \gets \mathcal{G}.\text{FIND}(v)$\;
+            \If{$g_u \neq g_v$}{
+                $T_{uv} \gets T(g_u \cup g_v)$\;\label{alg:evaluation_obj}
+                \If{$T_{uv} \leq \max\{T(g_u),\>T(g_v)\}$}{\label{alg:objectiveComp}
+                    $g_{m} \gets \mathcal{G}.\text{UNION}(g_u, g_v)$\;
+                }
+            }
+        }
+        \KwRet{$\mathcal{G}$}
+    }
+\end{algorithm}
+We formulate this problem into a two-tiered optimization method: the first, \emph{DeciderGroup},
+we cast as a clustering problem with objective function and constraints detailed
+below.
+We encode the second, \emph{DeciderAssign}, as a
+load balancing instance, independently invoked on each cluster generated from the topology graph.
+We briefly remark that there is extensive prior research into load scheduling problems, of the type described above,
+the most notable being work by~\cite{makespan1, makespan2} and~\cite{approx} for the~\emph{minimum makespan problem},
+which is NP-complete~\cite{approx2}.
+As such, we defer the explication of this expert scheduling formulation to the supplemental materials.
+
+\textbf{Clustering Objective}.
+Firstly, recall that each expert parallel group $g$ executes independently and thus completes their MoE layer
+computation in time $T(g)$ for a single iteration.
+However, at the end of the iteration, these groups perform a synchronous all-reduce communication operation to
+combine gradients for expert weights.
+The global iteration latency is thus below and that we aim to minimize.
+\begin{align}
+    \label{eq:obj}
+    \min \enspace \max_{g \in \mathcal{G}}\enspace & T(g),
+    \enspace \text{where } T(g) = \begin{cases}
+                                      T'(g) & N_g > 0 \\
+                                      \infty & \text{otherwise}
+    \end{cases}
+\end{align}
+Also, $N_g$, captures the number of nodes in a valid group, which is dependent on its aggregate memory capacity,
+as presented below.
+\begin{align}\label{eqn:omega_group}
+N_g = \begin{cases}
+          |V_g| & \sum\limits_{j \in V_g}{\mathcal{M}_j} \geq \mathcal{X}_m \\
+          0 & \text{otherwise}
+\end{cases}
+\end{align}
+Precisely, we capture how MoE Expert Parallelism (EP) and DDP affect the end-to-end time of an MoE layer spanning a
+single training iteration below.
+We decompose $T'(g)$, into its constituent costs, namely expert computation $\pi(g)$,
+expert parallel \emph{all-to-all} communication~$\mathcal{C}$, and gradient all-reduce communication $T_r$.
+We also introduce a novel quantity $\gamma(\omega)$, termed \emph{execution frequency},
+which we describe in great detail in~\S\ref{sec:decider}.
+For this work we study inference, so $T_{r}(|\mathcal{G}|) = 0$ due to no gradient communication.
+\begin{align}\label{eqn:objective2}
+T'(g) = \gamma(\omega)\left( \pi(g) + \max_{i \in V_g} \> \mathcal{C}_i \right) + T_{r}(|\mathcal{G}|)
+\end{align}
+We reiterate $T'(g)$ below,
+clarifying $\pi(g)$, and $\mathcal{C}$ and defining $T_r$ per the worst case latency of~\cite{raben}.
+Note that $\forall a, b \in \mathcal{G}$, $\alpha^* = \max \{\alpha_{ab}\}$ and $\beta^* = \max \{\beta_{ab}\}$,
+and $d$, $d_{ar}$ are token and gradients buffer sizes.
+\begin{multline}\label{eq:clustering_objective}
+T'(g) = \gamma(\omega)\left(\frac{\sum\limits_{x \in \mathcal{X}}f_x}{\sum\limits_{j \in  g}\mathcal{F}_{j}}
+                          + \max_{i \in V_g} \sum_{(i,j) \in E_g} \eta(\alpha_{ij} + \frac{d}{|V_g|}\beta_{ij}) \right) +
+2(|\mathcal{G}| - 1)\left(  \alpha^{*} + d_{ar}\frac{\beta^{*}}{|\mathcal{G}|} \right)
+\end{multline}
+\subsection{Clustering Algorithm}\label{sec:algorithm}
+We solve Equation~\ref{eq:obj} using Algorithm~\ref{alg:dg},
+based on Hierarchical Agglomerative Clustering (HAC)~\cite{NIPS2017_2e1b24a6}.
+In summary, DeciderGroup (DG) operates as follows:
+\begin{enumerate}
+    \item Initially a single vertex $i \in V$ is a component in itself.
+    \item Sort edges ascending by weight, where edge $(u,v,w)$ has edge weight $w = \alpha_{uv} + d * \beta_{uv}$.
+    \item For each edge $(u,v)$, get their components $g_u$ and $g_v$, and compute $T_u$, $T_v$ and $T_{uv}$.
+    \item Merge $g_u$ and $g_v$, if $T_{uv} \leq \max\{T_u, T_v\}$
+    \item Repeat above steps until edges are exhausted.
+\end{enumerate}
+\begin{theorem}
+    Algorithm~\ref{alg:dg} completes in $\mathcal{O}(|E|\log|E| + |V|^2)$ time
+\end{theorem}

@@ -1,0 +1,49 @@
+%! Date = 5/22/25
+\section{Proof of Theorem~\ref{theorem:ww}}\label{sec:proof-of-theorem}
+We begin with two necessary definitions vital to the proof.
+\begin{definition}
+    Define a write as~$w(p_s, p_t, i)$, where $p_s$ is the source process and $i$ is an ordered tuple
+    indicating the index coordinates for $L$ residing on the target process $p_t$.
+    A write-write conflict occurs when there exist at least two distinct, un-synchronized, concurrent writes
+    $w_1(p_{s_1}, p_{t_1}, i_1)$ and $w_2(p_{s_2}, p_{t_2}, i_2)$, such that
+    $p_{t_1} = p_{t_2}$ and index coordinates $i_1 = i_2$ but $p_{s_1} \neq p_{s_2}$
+\end{definition}
+\begin{definition}
+    For any source process $p_s$, a valid index coordinate $i = (p*, r, b, e, c)$ satisfies the following:
+    \begin{enumerate}
+        \item For inter-device writes, it must hold that $p* = p_s$ and $b = 1$.
+        Note this also applies to self-looping writes $w(p_t, p_t, i)$.
+        \item For any write $w(p_s, p_t, i)$, if $b = 0$, then $p_s = p_t$.
+        This rule describes intra-device staging writes.
+    \end{enumerate}
+\end{definition}
+We restate Theorem~\ref{theorem:ww} and outline its proof below.
+\begin{theorem}\label{theorem:ww2}
+$L$ is write-write conflict-free.
+\end{theorem}
+\begin{proof}
+    As is the case for typical physical implementations,
+    assume that each index coordinate $i$ maps to a distinct memory segment in $L$.
+    Next, we show by contradiction that no write-write conflicts can exist when accessing $L$ using \emph{valid} $i$.
+    For simplicity, we only include the index coordinates when describing a write.
+    Assume that there exist at least two writes $w_1(p_{s_1}, p_{t_1}, i_1),\>w_2(p_{s_2}, p_{t_2}, i_2)$
+    with $p_{t_1} = p_{t_2}$ and valid destination coordinates
+    $i_1, i_2$, where $i_1 = i_2$ lexicographically and both are unpacked below.
+    \[
+        i_1 = (p_1, r_1, b_1, e_1, c_1),\> i_1 = (p_2, r_2, b_2, e_2, c_2)
+    \]
+    Note that for the message staging state, even though $i_1 = i_2$ the resultant memory segments reside in
+    different physical buffers resident in $p_{s_1}$ and $p_{s_2}$ respectively.
+    Therefore, for this state, there are no conflicts as intra-process writes always have distinct $c_j$
+    coordinates, where $j \in \{0, C - 1\}$.
+    For inter-process transfers, we have two cases.
+
+    \textit{Case 1: $p_{s_1} = p_{s_2}$}
+    \newline Here, $w_1$ and $w_2$ are identical operations.
+    This contradicts the definition of a conflict, which requires that $p_{s_1} \neq p_{s_2}$.
+    In practice, such repeat writes never even occur.
+
+    \textit{Case 2: $p_{s_1} \neq p_{s_2}$}
+    \newline To ensure validity for $i_1$ and $i_2$, it is the case that $p_1 = p_{s_1}$ and $p_2 = p_{s_2}$.
+    However, this implies that $i_1 \neq i_2$ yielding a contradiction as desired.
+\end{proof}

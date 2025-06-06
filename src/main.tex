@@ -1,0 +1,138 @@
+%! Date = 5/27/25
+\documentclass{article}
+% if you need to pass options to natbib, use, e.g.:
+%     \PassOptionsToPackage{numbers, compress}{natbib}
+% before loading neurips_2025
+
+\PassOptionsToPackage{square, numbers, compress}{natbib}
+\bibliographystyle{unsrtnat}
+
+% ready for submission
+\usepackage[preprint]{neurips_2025}
+% to compile a preprint version, e.g., for submission to arXiv, add add the
+% [preprint] option:
+%     \usepackage[preprint]{neurips_2025}
+
+
+% to compile a camera-ready version, add the [final] option, e.g.:
+%     \usepackage[final]{neurips_2025}
+
+
+% to avoid loading the natbib package, add option nonatbib:
+%    \usepackage[nonatbib]{neurips_2025}
+\usepackage[utf8]{inputenc} % allow utf-8 input
+\usepackage{float}
+\usepackage[T1]{fontenc}    % use 8-bit T1 fonts
+\usepackage{hyperref}       % hyperlinks
+\usepackage{url}            % simple URL typesetting
+\usepackage{booktabs}       % professional-quality tables
+\usepackage{amsfonts}       % blackboard math symbols
+\usepackage{nicefrac}       % compact symbols for 1/2, etc.
+\usepackage{microtype}      % microtypography
+\usepackage[dvipsnames]{xcolor}
+\usepackage{graphicx}         % colors
+\usepackage{xspace}
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage[linesnumbered,ruled,longend,commentsnumbered]{algorithm2e}
+\usepackage{mathtools}
+\usepackage{amssymb}
+\usepackage{wrapfig}
+\usepackage{enumitem}
+\usepackage{lipsum}
+\usepackage{amsthm}
+\newlist{compactitem}{itemize}{1}
+\setlist[compactitem,1]{label=\textbullet, left=0pt, itemsep=1pt, topsep=1pt, parsep=0pt, partopsep=0pt}
+
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}{Definition}[section]
+\newtheorem{remark}{Remark}[section]
+\newtheorem{example}{Example}[theorem]
+\providecommand{\vs}{vs. }
+\providecommand{\ie}{\emph{i.e.,} }
+\providecommand{\eg}{\emph{e.g.,} }
+\providecommand{\aka}{\emph{aka} }
+\providecommand{\cf}{\emph{cf.,} }
+\providecommand{\resp}{\emph{resp.,} }
+\providecommand{\etal}{\emph{et al. }}   %Removed trailing space here; usually want non-breaking space with following reference
+\providecommand{\etc}{\emph{etc.}}      % No trailing space here either
+\providecommand{\mypara}[1]{\smallskip\noindent\emph{#1} }
+\providecommand{\myparab}[1]{\noindent\textbf{#1} }
+\providecommand{\myparasc}[1]{\smallskip\noindent\textsc{#1} }
+
+\newcommand{\rachee}[1]{\color{red} [rachee: #1] \color{black}}
+\newcommand{\byungsoo}[1]{\color{blue} [byungsoo: #1] \color{black}}
+\newcommand{\todo}[1]{\color{red} [TODO: #1] \color{black}}
+\newcommand{\sysname}{FlashDMoE\xspace}
+
+\providecommand{\alltoall}{\textsc{AllToAll}\xspace}
+\providecommand{\allreduce}{\textsc{AllReduce}\xspace}
+\providecommand{\allgather}{\textsc{AllGather}\xspace}
+\providecommand{\ltol}{\textsc{LayerToLayer}\xspace}
+\providecommand{\reducescatter}{\textsc{ReduceScatter}\xspace}
+
+\title{\sysname: Fast Distributed MoE in a Single Kernel}
+\author{%
+    Osayamen Jonathan Aimuyo\thanks{Also reachable at \texttt{osayamen@stanford.edu}} \\
+    Cornell University\\
+    \texttt{oja7@cornell.edu} \\
+% examples of more authors
+ \And
+ Byungsoo Oh \\
+ Cornell University \\
+ \texttt{bo239@cornell.edu} \\
+ \And
+ Rachee Singh \\
+ Cornell University \\
+ \texttt{rs2293@cornell.edu} \\
+}
+% The \author macro works with any number of authors. There are two commands
+% used to separate the names and addresses of multiple authors: \And and \AND.
+%
+% Using \And between authors leaves it to LaTeX to determine where to break the
+% lines. Using \AND forces a line break at that point. So, if LaTeX puts 3 of 4
+% authors names on the first line, and the last on the second line, try using
+% \AND instead of \And before the third author name.
+
+
+\setlength{\abovedisplayskip}{4pt} % space above equations
+\setlength{\belowdisplayskip}{4pt} % space below equations
+\setlength{\abovedisplayshortskip}{2pt}
+\setlength{\belowdisplayshortskip}{2pt}
+
+\begin{document}
+    % \vspace{-6em}
+    \maketitle
+    \input{content/abstract}
+    \input{content/introduction}
+    \input{content/motivation}
+    \input{content/method-v2}
+    \input{content/evaluation-v2}
+    \input{content/limitations}
+    \input{content/conclusion}
+    \input{content/acks}
+    \clearpage
+    \bibliography{main}
+    \clearpage
+    \input{content/checklist}
+    \clearpage
+    \appendix
+    \input{content/related}
+    \input{content/appx/motivation}
+    \input{content/appx/proofs}
+%    \input{content/appx/flowchart}
+    \clearpage
+    \input{content/appx/task}
+    \clearpage
+    %\input{content/appx/eval_data}
+    \clearpage
+    \input{content/appx/actors}
+    \input{content/appx/impl}
+    \input{content/appx/fp16_t}
+    % defer to supplemental
+    %\input{content/appx/decider}
+
+    % \input{content/appx/optimizations}
+    \clearpage
+\end{document}
