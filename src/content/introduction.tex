@@ -57,10 +57,28 @@ which we provide in this work through complete kernel fusion and asynchronous de
     \label{fig:intro}
     \vspace{-10pt}
 \end{figure}
-
+\begin{table}[!ht]
+    \centering
+    \caption{\textbf{Kernel Fusion Comparison.}
+    Our method is the first to fully fuse the DMoE layer into a single GPU kernel. We report GPU operations from detailed profiling with Nsight Systems (\S\ref{sec:evaluation}).}
+    \label{tab:gpuOps}
+    \setlength{\tabcolsep}{8pt}
+    \renewcommand{\arraystretch}{0.9}
+    \begin{tabular}{@{}lc@{}}
+        \toprule
+        \textbf{Works} & \textbf{Launched GPU Ops} \\ \midrule
+        \sysname & 1 \\
+        COMET~\cite{comet} & 33 \\
+        Megatron-LM CUTLASS~\cite{megatron, 10.1145/3458817.3476209} & 85 \\
+        Megatron-LM TE~\cite{megatron, 10.1145/3458817.3476209} & 261 \\
+        Megatron-LM + DeepEP~\cite{deepep} & 432 \\
+        DeepSpeedMoE~\cite{pmlr-v162-rajbhandari22a} & 550 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
 \subsection{Our Contributions: DMoE in a single kernel}
 To overcome these fundamental inefficiencies in state-of-the-art MoE models, we develop \sysname,
-a novel MoE architecture that integrates all computation and communication tasks into a single persistent GPU kernel
+a novel MoE architecture, integrating all computation and communication tasks into a single persistent GPU kernel
 \ie a kernel that remains active for the entirety of the MoE operator (Figure~\ref{fig:intro} bottom left).
 Instead of multiple kernel launches coordinated by the CPU, \sysname requires launching only one kernel,
 significantly reducing the involvement of the CPU in the MoE operator.
@@ -115,5 +133,3 @@ Our evaluations show that \sysname achieves \textbf{6}$\times$ latency speedup,
 increased throughput compared to state-of-the-art implementations.
 We project these performance gains becoming even better in multi-node scenarios,
 where inter-node communication occurs using lower bandwidth inter-node links (\eg RDMA, Infiniband).
-By eliminating repeated kernel launches and deftly pipelining communication all in a single fused kernel,
-\sysname sets a new standard for scalable and performant MoE model deployments.

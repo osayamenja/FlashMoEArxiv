@@ -5,8 +5,16 @@
     \caption{\emph{\sysname Fused Kernel}}
     \label{fig:fusedK}
 \end{figure}
-The performance of modern distributed MoE pipelines suffers from two primary bottlenecks: (1) frequent many-to-many
-collective communication operations on the critical execution path due to expert parallelism, and (2) significant overhead from repeatedly launching multiple computation and communication kernels on the host CPU. To overcome these limitations, we introduce \sysname, a fully fused MoE operator implemented as a single persistent GPU kernel. Unlike previous approaches~\cite{comet, deepep, pmlr-v162-rajbhandari22a, megatron, MLSYS2023_5616d34c, MLSYS2024_339caf45, 10.1145/3503221.3508418, 10.1145/3588964, 10.1145/3627703.3650083, 10.1145/3710848.3710868, NEURIPS2022_67d57c32}, \sysname is the first solution to implement a \emph{completely fused Distributed MoE kernel}, eliminating kernel launch overhead entirely by requiring only a single kernel launch (see Table~\ref{tab:gpuOps}).
+Modern distributed MoE systems suffer from two limitations: (1) frequent many-to-many
+(\emph{AlltoAll or AllGather}) collectives on the critical path, and
+(2) significant overhead from repeated kernel launches.
+We address these in \sysname, a fully fused MoE operator implemented
+as a single persistent GPU kernel.
+Unlike previous approaches~\cite{comet, deepep, pmlr-v162-rajbhandari22a, megatron, MLSYS2023_5616d34c,
+    MLSYS2024_339caf45, 10.1145/3503221.3508418, 10.1145/3588964, 10.1145/3627703.3650083, 10.1145/3710848.3710868,
+    NEURIPS2022_67d57c32},
+\sysname is the first solution to implement a \emph{completely fused Distributed MoE kernel},
+eliminating kernel launch overhead entirely by requiring only a single kernel launch (see Table~\ref{tab:gpuOps}).
 \SetKwInput{KwRequire}{Require}
 \SetKwInput{KwResult}{Result}
 \SetKwInput{KwInput}{Input}
@@ -54,23 +62,47 @@ collective communication operations on the critical execution path due to expert
 \end{figure}
 
 \myparab{Actor-based model.}
-The design of \sysname is based on the actor model of concurrent computation~\cite{agha:85, 10.5555/1624775.1624804, Greif:75}. We implement this model by specializing GPU thread blocks and warps into three distinct actor roles: (1) \textbf{Processor} (\S\ref{subsec:processor}), (2) \textbf{Subscriber} (\S\ref{subsec:subscriber}), and (3) \textbf{Scheduler}(\S\ref{subsec:scheduler}).
-The Processor performs compute (GEMMs and element-wise operations) and tile communication. We use CUTLASS~\cite{Thakkar_CUTLASS_2023} as the underlying infrastructure for high-performance BLAS routines and NVSHMEM for kernel-initiated communication~\cite{nvshm}. The Subscriber and Scheduler perform administrative functions. Specifically, the Scheduler assigns computational tasks to available thread blocks. One key innovation is making the Scheduler both \emph{multithreaded}, enabling high scheduling throughput, and \emph{work-conserving}, ensuring consistently high GPU SM utilization. On the other hand, the Subscriber subscribes to data communicated over the network. Of the $N$ thread blocks on a GPU, we specialize $N-1$ to adopt the \textbf{Processor} role. We specialize the last block for administrative functions. Within this block, we specialize three warps for the \textbf{Subscriber} role and one warp for the \textbf{Scheduler} role. This split of thread blocks across actors is intentional: our goal is to use few resources for administrative tasks while reserving bulk of the resources for performing MoE computation tasks. Figure~\ref{fig:fusedK} summarizes the \sysname architecture and its constituent actors, while Algorithm~\ref{alg:one} gives a very close translation of the
-system in code. Note that $A \in \mathbb{R}^{S \times H}$ is the input token matrix;
+The design of \sysname is based on the actor model of concurrent
+computation~\cite{agha:85, 10.5555/1624775.1624804, Greif:75}.
+We implement this model by specializing GPU thread blocks and warps into three distinct actor roles:
+(1) \textbf{Processor} (\S\ref{subsec:processor}), (2) \textbf{Subscriber} (\S\ref{subsec:subscriber}),
+and (3) \textbf{Scheduler}(\S\ref{subsec:scheduler}).
+The Processor performs compute (GEMMs and element-wise operations) and tile communication.
+We use CUTLASS~\cite{Thakkar_CUTLASS_2023} as the underlying infrastructure for high-performance
+BLAS routines and NVSHMEM for kernel-initiated communication~\cite{nvshm}.
+The Subscriber and Scheduler perform administrative functions.
+Specifically, the Scheduler assigns computational tasks to available thread blocks.
+Our key innovation is making the Scheduler both \emph{multithreaded},
+enabling high scheduling throughput, and \emph{work-conserving}, ensuring consistently high GPU SM utilization.
+On the other hand, the Subscriber decodes \emph{tile packets} from peer GPUs to task descriptors
+(\S\ref{subsec:task-abstraction-for-computation}).
+Of the $N$ thread blocks on a GPU, we specialize $N-1$ to adopt the \textbf{Processor} role.
+We specialize the last block as the Operating System (OS).
+Within this block, we specialize three warps for the \textbf{Subscriber} role and
+one warp for the \textbf{Scheduler} role.
+This split of thread blocks across actors is intentional: our goal is to use few resources for administrative
+tasks while reserving bulk of the resources for performing MoE computation tasks.
+Figure~\ref{fig:fusedK} summarizes the
+\sysname architecture and its constituent actors, while Algorithm~\ref{alg:one} gives a very close translation of the
+system in code.
+Note that $A \in \mathbb{R}^{S \times H}$ is the input token matrix;
 $O \in \mathbb{R}^{S \times H}$ the output matrix;
 and $X \in \mathbb{R}^{E\times H \times D}$ is a 3-D tensor of expert weights,
 where $E$ denotes the number of local experts for the executing GPU, $H$ is the embedding dimension,
-$D$ is the FFN intermediate dimension and $S$ is the sequence length. $T_{\phi} \in \left(\mathbb{R}^2\right)^{E \times C}$
+$D$ is the FFN intermediate dimension and $S$ is the sequence length.
+$T_{\phi} \in \left(\mathbb{R}^2\right)^{E \times C}$
 is a routing table data structure, where $T_{\phi}\left( e, c\right) = (i, w)$ indicates that token $i$ at slot $c$
-be sent to expert $e$. $w$ is the combine weight (Equation~\ref{eq:combine1}) and $C$ is expert capacity.
+dispatches to expert $e$. $w$ is the combine weight (Equation~\ref{eq:combine1}) and $C$ is expert capacity.
 The tuple structure of $T_{\phi}$ is an implementation detail. $G_{\phi} \in \mathbb{R}^{S \times E}$ captures
 the affinity scores produced by the gate (Equation~\ref{eq:combine2}).
 
 \begin{figure}[!ht]
     \centering
-    \includegraphics[width=3.5in]{figures/mem}
+    \includegraphics[width=3.5in]{figures/mem2}
     \caption{\emph{GPU Memory Hierarchy}.
-    The inverted pyramid (left) shows the load/store access latency~\cite{10579250, amperearch, ptx}. Table above outlines the capacity for different memory tiers (for A100 GPUs). The shared memory and register capacity are static configurations for \sysname.
+    The inverted pyramid (left) shows the load/store access latency~\cite{10579250, amperearch, ptx}.
+    The table above outlines the capacity for different memory tiers (for A100 GPUs).
+    The shared memory and register capacity are static configurations for \sysname.
     The right figure shows accessibility scopes: on-chip \textbf{registers}
     are scoped to a thread; on-chip \textbf{shared memory} is visible to all threads in a block;
     and off-chip \textbf{global memory} is accessible by all threads on device.}
@@ -79,12 +111,34 @@ the affinity scores produced by the gate (Equation~\ref{eq:combine2}).
 \end{figure}
 
 \myparab{Inter-actor interactions in \sysname.}
-\sysname decomposes MoE computation and communication at the granularity of a tile, a statically sized partition of a tensor, to achieve parallel execution and efficient overlap of tasks. Each tile corresponds to a discrete unit of work encapsulated by a \emph{task descriptor}. The \textbf{Subscriber} actor decodes these task descriptors from the remote data packets it receives. Concurrently, the \textbf{Scheduler} actor receives notifications about available tasks and batches them for execution by the \textbf{Processor} actors. \textbf{Processor} actors perform computations defined by the tasks, like the feed-forward network (FFN) and expert-combine operations. Figure~\ref{fig:actors} shows the chain of actor interactions in \sysname that implements the MoE operator.
+\sysname decomposes MoE computation and communication at the granularity of a tile, a statically sized partition of a tensor,
+to achieve parallel execution and efficient overlap of tasks.
+Each tile maps to a discrete unit of work encapsulated by a \emph{task descriptor}.
+The \textbf{Subscriber} decodes these task descriptors from the remote tile packets it receives.
+Concurrently, the \textbf{Scheduler} receives notifications about available tasks and dispatches them for execution
+to \textbf{Processor} actors that perform computations defined by these tasks,
+namely the feed-forward network (FFN) and expert-combine operations.
+Figure~\ref{fig:actors} show the chain of actor interactions, demonstrating how \sysname
+enforces DMoE functional dependencies.
 
 \myparab{Determining tile dimensions in \sysname.}
-Selecting appropriate tile dimensions in \sysname is crucial to ensure efficient GPU utilization. A tile that's too small can underutilize the GPU, while excessively large tiles create register pressure, causing performance-degrading register spills to local memory. After careful consideration, we choose tile dimensions of (128, 64). Our key insights are: increasing tile width significantly raises the register usage per thread, potentially triggering costly spills; increasing tile height without adjusting thread count increases workload per thread, harming performance. Raising the thread count per block beyond our fixed value of 128 threads reduces the number of concurrent blocks, negatively affecting SM occupancy. Larger thread-block sizes also increase overhead from intra-block synchronization (\emph{\_\_syncthreads()} barriers), further degrading performance. Thus, our chosen tile dimensions balance register usage, shared-memory constraints, and GPU occupancy to deliver optimal performance.
+Selecting appropriate tile dimensions in \sysname is crucial to ensure efficient GPU utilization.
+An undersized tile underutilizes the GPU,
+while excessively large tiles create register pressure,
+causing performance-degrading register spills to local memory.
+After careful parameter sweeps,
+we choose tile dimensions of (128, 64).
+Our key insights are: increasing tile width significantly raises the register usage per thread,
+potentially triggering costly spills;
+increasing tile height without adjusting thread count increases workload per thread, harming performance.
+Raising the thread count per block beyond our fixed value of 128 threads reduces the number of concurrent blocks,
+negatively affecting SM occupancy.
+Larger thread-block sizes also increase overhead from intra-block synchronization (\emph{\_\_syncthreads()} barriers),
+further degrading performance.
+Thus, our chosen tile dimensions balance register usage, shared-memory constraints,
+and GPU occupancy to deliver optimal performance.
 
-\subsection{Task Abstraction for Computation}
+\subsection{Task Abstraction for Computation}\label{subsec:task-abstraction-for-computation}
 
 \myparab{Computational operators.}
 The FFN operator is a standard position-wise feed-forward network widely used in Transformer architectures~\cite{NIPS2017_3f5ee243}, composed of two linear transformations separated by a nonlinear activation $\phi$ (e.g., GELU or ReLU):
@@ -156,20 +210,11 @@ Whereas, the expert-combine operation is formalized as:
     \end{subfigure}
 \end{figure}
 
-%\begin{figure}[!ht]
-%    \centering
-%    \includegraphics[width=0.6\linewidth, keepaspectratio]{figures/mem_layout}
-%    \caption{\emph{Symmetric Tensor Layout across 2 Expert-parallel Processes}.}
-%    \label{fig:mem_layout}
-%\end{figure}
-%\begin{figure}[!ht]
-%    \centering
-%    \includegraphics[width=0.35\textwidth, keepaspectratio]{figures/sm_big}
-%    \caption{\emph{State machine for DMA (top) and RDMA (bottom) communication.}}
-%    \label{fig:sm}
-%\end{figure}
 Within a single GPU device, the actors in \sysname communicate through the GPU's memory subsystem (see Figure~\ref{fig:mem}).
-Specifically, the Scheduler and Subscriber actors exchange data via fast shared memory, while other actor pairs communicate through global memory. For communication across multiple devices, \sysname uses \emph{device-initiated communication}, leveraging the one-sided PGAS (Partitioned Global Address Space) programming model~\cite{10.1145/1278177.1278183}.
+Specifically, the Scheduler and Subscriber actors exchange data via fast shared memory, while other actor pairs
+communicate through global memory.
+For communication across multiple devices, \sysname uses \emph{device-initiated communication},
+leveraging the one-sided PGAS (Partitioned Global Address Space) programming model~\cite{10.1145/1278177.1278183}.
 However, achieving scalable and correct one-sided memory accesses in PGAS without costly synchronization
 is a known challenge~\cite{deepep, triton-dist}.
 We address this challenge with a provably correct and scalable solution: a symmetric tensor layout $L$,
@@ -178,10 +223,15 @@ We define L as:\\
 \[
     L \in \mathbb{R}^{P\times R \times B \times E \times C \times H}
 \]
-where: $P$ is the expert parallel world size, $R$ identifies communication rounds (\ie two rounds, one for token dispatch and one for combine), $B$ is number of staging buffers,
-$E$ is the number of local experts, $C$ is the upscaled expert capacity (\S\ref{subsubsec:payload}) and $H$ is the embedding dimension.
+where: $P$ is the expert parallel world size, $R$ identifies communication rounds (\ie two rounds,
+one for token dispatch and one for combine), $B$ is number of staging buffers,
+$E$ is the number of local experts, $C$ is the upscaled expert capacity (\S\ref{subsubsec:payload})
+and $H$ is the token embedding dimension.
 Our core insight to enable non-blocking communication is \emph{temporal buffering}.
-Specifically, we overprovision memory for the underlying token matrix by at least $2 \cdot r$ times, where $r$ is the number of communication rounds in the dependency graph, and the factor of $2$ accounts for separate buffers for incoming and outgoing data within each communication round. For MoE models, we have $2 \cdot r = 4$.
+Specifically, we overprovision memory for the underlying token matrix by at least $2 \cdot r$ times, where $r$
+is the number of communication rounds in the dependency graph, and the factor of $2$ accounts for
+separate buffers for incoming and outgoing data within each communication round.
+For MoE models, we have $2 \cdot r = 4$.
 This modest increase in memory usage eliminates the need for synchronization during one-sided data transfers.
 Figure~\ref{fig:sm} illustrates how cells within this symmetric tensor layout are indexed
 and used for Direct Memory Access (DMA) and Remote DMA (RDMA) operations.
@@ -192,7 +242,10 @@ See\S~\ref{sec:proof-of-theorem} for the proof.
 \begin{theorem}\label{theorem:ww}
    The symmetric tensor layout $L$ is write-write conflict-free.
 \end{theorem}
-To construct $L$, we start from the original token buffer $T \in \mathbb{R}^{S \times H}$, where $S$ is the sequence length and $H$ is the hidden dimension. We first reorganize the sequence dimension $S$ into three sub-dimensions representing the expert capacity ($C$), local expert slots ($E$), and the expert parallel world size ($W$), st:
+To construct $L$, we start from the original token buffer $T \in \mathbb{R}^{S \times H}$, where $S$ is the
+sequence length and $H$ is the token embedding dimension.
+We first reorganize the sequence dimension $S$ into three sub-dimensions representing the expert capacity ($C$),
+local expert slots ($E$), and the expert parallel world size ($W$), st:
 \[
 C \cdot E \cdot W = C \cdot E' = S', \quad\text{where}\quad S' \geq S \text{ and } E' \geq E_W
 \]
@@ -200,15 +253,28 @@ In the typical case of uniform expert distribution (illustrated in Figure~\ref{f
 we have $S' = S$ and $E' = E_W$, where $E_W$ is the total number of experts in the model.
 Thus, the size of the token buffer is $Size(T) = S' \cdot H$.
 In Figure~\ref{fig:mem_layout}, each cell labeled $E_i$ (with $i \in \{0,\ldots,3\}$) is a matrix of size $(C, H)$.
-Extending prior work~\cite{DBLP:conf/iclr/LepikhinLXCFHKS21, comet}, we introduce additional temporal dimensions $R$ (communication rounds) and $B$ (staging buffers). Each communication round has two fixed staging slots: one for outgoing tokens and another for incoming tokens. Each slot, indexed by dimension $P$, forms a tensor of shape $(S', H)$. Therefore, the tensor size $Size(L)$ is generally at least four times the original token buffer size, becoming exactly four times larger in the case of uniform expert distribution. Empirically, we find:
+Extending prior work~\cite{DBLP:conf/iclr/LepikhinLXCFHKS21, comet}, we introduce additional temporal dimensions
+$R$ (communication rounds) and $B$ (staging buffers).
+Each communication round has two fixed staging slots: one for outgoing tokens and another for incoming tokens.
+Each slot, indexed by dimension $P$, forms a tensor of shape $(S', H)$.
+Therefore, the tensor size $Size(L)$ is generally at least four times the original token buffer size,
+becoming exactly four times larger in the case of uniform expert distribution. Empirically, we find:
 \[
     Size(L) \approx 4 \cdot Size(T)
 \]
 
 \subsubsection{In-place Padding for Payload Efficiency}\label{subsubsec:payload}
-Due to the dynamic and uneven distribution of tokens in MoE dispatch~\cite{bmamba}, GPUs commonly receive fewer tokens than their predefined expert capacity. Current MoE frameworks~\cite{pmlr-v162-rajbhandari22a} typically pad these buffers with null tokens before computation, unnecessarily increasing communication payloads and degrading performance. In contrast, we propose \emph{in-place padding}, performing padding directly within the local symmetric tensor buffers and thus eliminating excess network communication.
+Due to the dynamic and uneven distribution of tokens in MoE dispatch~\cite{bmamba}, GPUs commonly
+receive fewer tokens than their predefined expert capacity.
+Current MoE frameworks~\cite{pmlr-v162-rajbhandari22a} typically pad these buffers with null tokens before computation,
+unnecessarily increasing communication payloads and degrading performance.
+In contrast, we propose \emph{in-place padding}, performing padding directly within the local
+symmetric tensor buffers and thus eliminating excess network communication.
 
-As we show in Figure~\ref{fig:mem_layout} as a reference, each cell $E_i$ is sized according to the expert capacity $C$. We further align this capacity to ensure divisibility by the tile block size $bM = 128$, guaranteeing safe and aligned memory reads by Processor threads consuming remote tokens. This in-place padding strategy slightly increases the memory footprint of $L$, as described below:
+As we show in Figure~\ref{fig:mem_layout} as a reference, each cell $E_i$ is sized according to the expert capacity $C$.
+We further align this capacity to ensure divisibility by the tile block size $bM = 128$,
+guaranteeing safe and aligned memory reads by Processor threads consuming remote tokens.
+This in-place padding strategy slightly increases the memory footprint of $L$, as described below:
 \[
     Size(L) \approx \begin{cases}
         4 \cdot Size(T), & \frac{S}{E} \geq bM \\[1ex]
