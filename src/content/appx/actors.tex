@@ -2,8 +2,6 @@
 \subsection{Processor}\label{subsec:processor}
 \begin{algorithm}[!ht]
     \DontPrintSemicolon
-    \SetKwInput{KwInput}{Input}
-    \KwInput{$G_{\phi}$: Scale weights from the Gate}
     \caption{~\emph{Processor Actor}: executed by a block}\label{alg:processor}
     \Begin{
         $tQ \gets \mathbf{GetTQ}()$\;
@@ -53,7 +51,6 @@
     \DontPrintSemicolon
     \SetKwInput{KwInput}{Input}
     \SetKwBlock{DoParallel}{do in parallel}{end}
-    \KwInput{$N$: Number of processors}
     \caption{~\emph{Scheduler Actor}: executed by one warp}\label{alg:scheduler}
     \Begin{
         $scheduled \gets 0$\;
@@ -97,7 +94,8 @@
     \DontPrintSemicolon
     \SetKwBlock{DoParallel}{do in parallel}{end}
     \SetKwInput{KwInput}{Input}
-    \KwInput{$O \in \mathbb{R}^{S \times H}$, $X \in \mathbb{R}^{E\times H \times P}$}
+    \KwInput{$T_{\phi} \in \left(\mathbb{R}^2\right)^{E \times C}$, $G_{\phi} \in \mathbb{R}^{S \times E}$
+        $O \in \mathbb{R}^{S \times H}$, $X \in \mathbb{R}^{E\times H \times D}$}
     \caption{~\emph{Subscriber Actor}: executed by three warps}\label{alg:susbcriber}
     \Begin{
         $interrupt \gets \mathbf{GetSharedInterrupt}()$\;
@@ -129,7 +127,7 @@
                 \If{$\text{Signal is set and flag is not visited}$}{
                     $\text{Mark visited}$\;
                     $\text{Enforce memory consistency before consuming packet}$\;
-                    $\text{Decode packet into a set of } combine \text{ task descriptors using } O$\;
+                    $\text{Decode packet into a set of } combine \text{ task descriptors using } T_{\phi},\> G_{\phi}, O$\;
                     $\text{Write task descriptors to } tQ$\;
                     $\text{Notify Scheduler of decoded tasks}$\;
                 }

@@ -18,17 +18,17 @@ collective communication operations on the critical execution path due to expert
     \small
     \DontPrintSemicolon
     \caption{~\emph{\sysname Distributed MoE Fused Kernel}}\label{alg:one}
-    \KwInput{$A, O \in \mathbb{R}^{S\times H},\; X \in \mathbb{R}^{E\times H \times P},\; N$}
+    \KwInput{$A, O \in \mathbb{R}^{S\times H},\; X \in \mathbb{R}^{E\times H \times D},\; N$}
     \Begin{
-        $T, G_{\phi} \gets \mathbf{FusedGate}(A)$\;
+        $T_{\phi}, G_{\phi} \gets \mathbf{FusedGate}(A)$\;
         \eIf{$\text{blockId} + 1 < N$}{
-            $\mathbf{Dispatch}(T, A)$\;
-            processor::start($G_{\phi}$)\;
+            $\mathbf{Dispatch}(T_{\phi}, A)$\;
+            processor::start()\;
         }{
             \eIf{$warpID == 0$}{
                 scheduler::start()\;
             }{
-                subscriber::start($X$, $O$)\;
+                subscriber::start($T_{\phi}$, $G_{\phi}$, $O$, $X$)\;
             }
         }
     }
@@ -58,9 +58,13 @@ The design of \sysname is based on the actor model of concurrent computation~\ci
 The Processor performs compute (GEMMs and element-wise operations) and tile communication. We use CUTLASS~\cite{Thakkar_CUTLASS_2023} as the underlying infrastructure for high-performance BLAS routines and NVSHMEM for kernel-initiated communication~\cite{nvshm}. The Subscriber and Scheduler perform administrative functions. Specifically, the Scheduler assigns computational tasks to available thread blocks. One key innovation is making the Scheduler both \emph{multithreaded}, enabling high scheduling throughput, and \emph{work-conserving}, ensuring consistently high GPU SM utilization. On the other hand, the Subscriber subscribes to data communicated over the network. Of the $N$ thread blocks on a GPU, we specialize $N-1$ to adopt the \textbf{Processor} role. We specialize the last block for administrative functions. Within this block, we specialize three warps for the \textbf{Subscriber} role and one warp for the \textbf{Scheduler} role. This split of thread blocks across actors is intentional: our goal is to use few resources for administrative tasks while reserving bulk of the resources for performing MoE computation tasks. Figure~\ref{fig:fusedK} summarizes the \sysname architecture and its constituent actors, while Algorithm~\ref{alg:one} gives a very close translation of the
 system in code. Note that $A \in \mathbb{R}^{S \times H}$ is the input token matrix;
 $O \in \mathbb{R}^{S \times H}$ the output matrix;
-and $X \in \mathbb{R}^{E\times H \times P}$ is a 3-D tensor of expert weights,
+and $X \in \mathbb{R}^{E\times H \times D}$ is a 3-D tensor of expert weights,
 where $E$ denotes the number of local experts for the executing GPU, $H$ is the embedding dimension,
-$P$ is the FFN intermediate dimension and $S$ is the sequence length.
+$D$ is the FFN intermediate dimension and $S$ is the sequence length. $T_{\phi} \in \left(\mathbb{R}^2\right)^{E \times C}$
+is a routing table data structure, where $T_{\phi}\left( e, c\right) = (i, w)$ indicates that token $i$ at slot $c$
+be sent to expert $e$. $w$ is the combine weight (Equation~\ref{eq:combine1}) and $C$ is expert capacity.
+The tuple structure of $T_{\phi}$ is an implementation detail. $G_{\phi} \in \mathbb{R}^{S \times E}$ captures
+the affinity scores produced by the gate (Equation~\ref{eq:combine2}).
 
 \begin{figure}[!ht]
     \centering

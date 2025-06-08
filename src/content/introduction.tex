@@ -36,11 +36,10 @@ Typically, inter-GPU communication APIs available in frameworks like PyTorch are
 \emph{CPU-driven}~\cite{nccl}.
 
 \myparab{Kernel launch overheads in MoE.}  
-To mitigate these communication bottlenecks,
-recent work pipelines computation with communication tasks (Figure~\ref{fig:intro}, middle left).
-However, their efficacy is further limited by the overhead of launching many kernels from the CPU\@.
-Specifically, these implementations require launching a large number of kernels per a single layer pass
-(see Table~\ref{tab:gpuOps}).
+The efficacy of communication overlapping is further limited by the overhead of
+launching many kernels from the CPU\@.
+Specifically, existing implementations~\cite{pmlr-v162-rajbhandari22a, comet, megatron, fastermoe}
+require launching a large number of kernels per a single layer pass (see Table~\ref{tab:gpuOps}).
 Frequent kernel launches negatively affect performance by:
 (1) creating non-deterministic kernel start times across GPUs, exacerbating straggler issues;
 (2) introducing unnecessary synchronization points, causing GPUs to wait on peers or the CPU before proceeding;
