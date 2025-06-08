@@ -29,7 +29,7 @@ Another round of said many-to-many is also necessary for restoring the permuted 
 to their original order within the sequence.
 In practice, these communication operations
 can account for up to 68\% of total runtime~\cite{10.1145/3603269.3604869, MLSYS2024_339caf45},
-during which the GPU is completely idle, \emph{only if} the implementation does not explicitly overlap with computation.
+during which the GPU is completely idle, unless the implementation explicitly overlaps with computation.
 This form of pipelining is challenging to achieve efficiently because it requires
 \emph{asynchronous GPU-driven communication} and \emph{kernel fusion} to maximize the overlap efficiency.
 Typically, inter-GPU communication APIs available in frameworks like PyTorch are not of this kind but instead are

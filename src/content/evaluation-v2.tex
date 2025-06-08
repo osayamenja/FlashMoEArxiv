@@ -18,18 +18,18 @@ We compare \sysname against several state-of-the-art MoE systems:
 (2) \textbf{FasterMoE}~\cite{fastermoe}, 
 (3) \textbf{Megatron-CUTLASS}~\cite{megatron-lm}, and
 (4) \textbf{Megatron-TE}: Megatron-LM with Transformer Engine~\cite{transformer-engine}.
-Comet relies on NVSHMEM, while FasterMoE and Megatron-LM use NCCL exclusively for communication.
+Comet relies on~\verb|cudaMemcpyPeerAsync|~\cite{fluxp2p}, while FasterMoE and Megatron-LM use NCCL exclusively for communication.
 We also evaluate \sysname on a multi-node environment and discuss our findings in \S\ref{sec:multi-node-evaluation}.
 \subsection{Desiderata}\label{subsec:desiderata}
-The (1) baseline exhibited anomalously bad performance values at 8 GPUs,
+In our experiments, we observe Comet exhibiting anomalously bad performance values at 8 GPUs,
 so we exclude their results from evaluations at 8 GPUs and only include for results at $\leq$
 4 GPUs.
-\textbf{Note} that we evaluate \sysname using FP32 precision whereas all baselines use FP16.
-We do so because (1) no baseline supports FP32 and (2) due to time constraints,
-our system is not yet tuned for FP16.
-Most importantly, this precision discrepancy \emph{disadvantages} \sysname's performance
-as we communicate and compute floating point values with 2x the bitwidth.
-But as we show in the succeeding sections, \sysname still outperforms all baselines.
+\textbf{Note} we evaluate \sysname using FP32 precision whereas all baselines use FP16.
+We do so because (1) no baseline supports FP32 and (2) time constraints prevent us from tuning our system
+to peak performance at FP16.
+Most importantly, this precision discrepancy disadvantages \sysname by doubling the
+communication and computation precision, \emph{making our results a conservative lower bound}.
+Yet, as we show in the succeeding sections, \sysname outperforms all baselines.
 \subsection{Forward Latency}\label{subsec:forward-latency}
 \begin{figure}[!h]
     \centering

@@ -2,6 +2,8 @@
 \subsection{Processor}\label{subsec:processor}
 \begin{algorithm}[!ht]
     \DontPrintSemicolon
+    \SetKwInput{KwInput}{Input}
+    \KwInput{$G_{\phi}$: Scale weights from the Gate}
     \caption{~\emph{Processor Actor}: executed by a block}\label{alg:processor}
     \Begin{
         $tQ \gets \mathbf{GetTQ}()$\;
@@ -94,6 +96,8 @@
 \begin{algorithm}[!ht]
     \DontPrintSemicolon
     \SetKwBlock{DoParallel}{do in parallel}{end}
+    \SetKwInput{KwInput}{Input}
+    \KwInput{$O \in \mathbb{R}^{S \times H}$, $X \in \mathbb{R}^{E\times H \times P}$}
     \caption{~\emph{Subscriber Actor}: executed by three warps}\label{alg:susbcriber}
     \Begin{
         $interrupt \gets \mathbf{GetSharedInterrupt}()$\;
@@ -112,7 +116,7 @@
                     $\text{Mark visited}$\;
                     $\mathbf{SelfCorrectTaskBound}(taskBound, Signal)$\;
                     $\text{Enforce memory consistency before consuming packet}$\;
-                    $\text{Decode packet into a set of } GEMM_0 \text{ task descriptors}$\;
+                    $\text{Decode packet into a set of } GEMM_0 \text{ task descriptors using } X$\;
                     $\text{Write task descriptors to } tQ$\;
                     $\text{Notify Scheduler of decoded tasks}$\;
                 }
@@ -125,7 +129,7 @@
                 \If{$\text{Signal is set and flag is not visited}$}{
                     $\text{Mark visited}$\;
                     $\text{Enforce memory consistency before consuming packet}$\;
-                    $\text{Decode packet into a set of } combine \text{ task descriptors}$\;
+                    $\text{Decode packet into a set of } combine \text{ task descriptors using } O$\;
                     $\text{Write task descriptors to } tQ$\;
                     $\text{Notify Scheduler of decoded tasks}$\;
                 }

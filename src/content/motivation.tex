@@ -8,7 +8,7 @@
         and \textbf{Total Time} $t$ be the maximum recorded step time. We define
         $Delay$ as the maximum difference between $t$ and $t_a$. Note $Delay$ is idle time. For the
         1x8 V100, we profile 1750 steps and 600 steps for the 8x4 A100. See Figure~\ref{fig:straggler}
-        for the raw disribution.}
+        for the raw distribution.}
     \label{tab:s_delays}
     \begin{tabular}{@{}lcccc@{}}
         \toprule
@@ -54,7 +54,7 @@ we see P95 communication performance degradation of \textbf{1.32X} when compared
 from Figure~\ref{sub:raw_perl}.
 This performance reduction is rather tame as the underlying hardware is a supercomputer that is
 well-tuned against ``software jitter''~\cite{nerscNetworkNERSC}.
-The performance loss is more severe in a single node Virtual Machine (VM) of with higher bandwidth,
+The performance loss is more severe in a single node commercial Virtual Machine (VM),
 where we observe p95 performance reduction of \textbf{11X}.
 In line with prior work~\cite{1639320, 10.1145/3545008.3545056} from the HPC community,
 we argue that obviating the inherent barrier in this synchronous collective communication would
