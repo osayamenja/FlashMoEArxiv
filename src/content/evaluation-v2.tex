@@ -151,6 +151,8 @@ exploiting lower precision, but by maximizing hardware utilization and eliminati
     \label{fig:xs}
 \end{figure}
 We analyze how \sysname scales with increasing number of experts at fixed sequence length (T = 16K).
+Note that for the discussed plots, the number of experts on the x-axis is the \emph{total number across all GPUs}.
+Each GPU gets 1/8th of this value.
 As seen in Figure\ref{fig:xs}, \sysname maintains \emph{low, uniform} latency, as desired,
 even as the number of experts grows from 8 to 128.
 In contrast, baselines exhibit superlinear latency increases due to increased kernel launch overheads.

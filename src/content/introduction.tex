@@ -24,11 +24,11 @@ This increase in model parameters (more FFNs) improves model quality without a
 \myparab{Communication overheads in MoE.}  
 As MoE model sizes grow, GPU memory constraints prevent hosting all experts on a single device.
 The standard practice is to distribute experts across multiple GPUs using expert parallelism (EP),
-which requires token routing via many-to-many communication~\cite{deepep, arctic, dbrx, 10.1145/3577193.3593704}.
-Another round of said many-to-many is also necessary for restoring the permuted tokens processed by experts
+which requires token routing via many-to-many communication in \alltoall or \allgather~\cite{deepep, arctic, dbrx, 10.1145/3577193.3593704}.
+Another round of said many-to-many communication is also necessary for restoring the permuted tokens processed by experts
 to their original order within the sequence.
-In practice, these communication operations
-can account for up to 68\% of total runtime~\cite{10.1145/3603269.3604869, MLSYS2024_339caf45},
+Existing work has observed these communication operations
+taking 68\% of total runtime~\cite{10.1145/3603269.3604869, MLSYS2024_339caf45},
 during which the GPU is completely idle, unless the implementation explicitly overlaps with computation.
 This form of pipelining is challenging to achieve efficiently because it requires
 \emph{asynchronous GPU-driven communication} and \emph{kernel fusion} to maximize the overlap efficiency.
@@ -36,7 +36,7 @@ Typically, inter-GPU communication APIs available in frameworks like PyTorch are
 \emph{CPU-driven}~\cite{nccl}.
 
 \myparab{Kernel launch overheads in MoE.}  
-The efficacy of communication overlapping is further limited by the overhead of
+The efficacy of communication overlap is further limited by the overhead of
 launching many kernels from the CPU\@.
 Specifically, existing implementations~\cite{pmlr-v162-rajbhandari22a, comet, megatron, fastermoe}
 require launching a large number of kernels per a single layer pass (see Table~\ref{tab:gpuOps}).
@@ -60,7 +60,10 @@ which we provide in this work through complete kernel fusion and asynchronous de
 \begin{table}[!ht]
     \centering
     \caption{\textbf{Kernel Fusion Comparison.}
-    Our method is the first to fully fuse the DMoE layer into a single GPU kernel. We report GPU operations from detailed profiling with Nsight Systems (\S\ref{sec:evaluation}).}
+    Our method is the first to fully fuse the DMoE layer into a single GPU kernel.
+    We report GPU operations from profiling with Nsight Systems. We count within a single layer
+        (Gate $\rightarrow$ Dispatch $\rightarrow$ Expert $\rightarrow$ Combine) on 2 A100s,
+        where each GPU has 32 experts.}
     \label{tab:gpuOps}
     \setlength{\tabcolsep}{8pt}
     \renewcommand{\arraystretch}{0.9}
@@ -77,24 +80,24 @@ which we provide in this work through complete kernel fusion and asynchronous de
     \end{tabular}
 \end{table}
 \subsection{Our Contributions: DMoE in a single kernel}
-To overcome these fundamental inefficiencies in state-of-the-art MoE models, we develop \sysname,
-a novel MoE architecture, integrating all computation and communication tasks into a single persistent GPU kernel
+To overcome these fundamental inefficiencies in state-of-the-art MoE models, we develop \sysname, where we
+integrate all DMoE computation and communication tasks into a single persistent GPU kernel
 \ie a kernel that remains active for the entirety of the MoE operator (Figure~\ref{fig:intro} bottom left).
 Instead of multiple kernel launches coordinated by the CPU, \sysname requires launching only one kernel,
-significantly reducing the involvement of the CPU in the MoE operator.
-Within the fused kernel, \sysname implements a concurrent-programming model to achieve fine-grained parallelization of
-computation and communication tasks of the MoE operator.
+significantly reducing the involvement of the CPU\@.
+Within the fused kernel, \sysname implements a reactive programming model to achieve
+fine-grained parallelism and loosely coupled, non-blocking execution among tens of thousands of GPU threads.
 
 \myparab{In-kernel Block scheduling and Tile parallelism.}
 \sysname implements \emph{tile-level parallelism},
 meaning it partitions input token matrices into smaller, independent units called \emph{tiles},
 which are processed by blocks but managed (scheduled and constructed) by warps.
-We specialize thread blocks as \emph{processors} to expert FFNs.
-A handful of warps perform specialized administrative tasks of
-(1) scheduling computational tasks by mapping them to warps (\emph{scheduler}),
-and (2) communicating with other GPUs (\emph{subscriber}).
-This design allows \sysname to dynamically assign tasks to GPU warps based on warp availability and the current workload,
-ensuring that no warp remains idle while useful work can be done.
+We specialize every thread block, except one, as \emph{processors} to perform compute.
+In addition, we designate a dedicated Operating System (OS) block (4 warps) to perform administrative tasks of
+(1) scheduling computational work to processors (\emph{scheduler}),
+and (2) decoding computational tasks from messages received from other GPUs (\emph{subscriber}).
+This design allows \sysname to dynamically assign tasks to GPU blocks based on \emph{readiness},
+ensuring that no GPU SM remains idle throughout the lifetime of the DMoE operator.
 \sysname selects tile dimensions to maximize GPU arithmetic intensity
 while still benefitting from a high-degree of parallelism.
 
