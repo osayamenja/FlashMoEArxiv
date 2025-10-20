@@ -136,35 +136,35 @@
     }
 \end{algorithm}
 \clearpage
-\section{Multi-Node Evaluation}\label{sec:multi-node-evaluation}
-\subsection{Setup}\label{subsec:setup}
-In this experiment, we seek to evaluate \sysname in the multi-node setting.
-We use 4 nodes, where each node comprises 4 A100 GPUs fully interconnected via NVLink.
-Across nodes, each GPU uses a single NIC providing 25 GB/s of bandwidth.
-We set the number of experts to be $16$ and assign each GPU to host only one,
-so the number of local experts is $1$.
-Note that we define MIV formally as follows:
-\[
-    MIV = \frac{Tokens}{Experts} * local\_{experts} * precision * hidden\_size * 2 * n_{rg}
-\]
-where $n_{rg}$ is the number of remote peers and the multiplicative
-factor of $2$ accounts for communication rounds (dispatch and combine).
-$n_{rg} = 12$ for this experiment.
-\subsection{Results}\label{subsec:results}
-\begin{figure} [!ht]
-    \centering
-    \includegraphics[width=4in,keepaspectratio]{figures/multi_node_fail}
-    \caption{Multi-node Latency evaluation.
-    Embbeding dimension is $1024$ and FFN intermediate size is $4096$.
-    We define Maximal Incast Volume (MIV) as the worst case upper bound for data volume that a
-    NIC receives in a single incast occurence.}
-    \label{fig:multi_fail}
-\end{figure}
-We observe a sublinear increase in latency as we scale the number of tokens.
-However, we observe at $Tokens > 2048$, that the application fails to terminate
-due to failure to receive expectant messages.
-We hypothesize this failure to be due to buffer overflow at the networking hardware layer as is common for applications
-that generate many and large messages~\cite{nerscNetworkNERSC} like our system.
-We note that this failure is addressable by tuning hardware configurations~\cite{ofiwgFi_cxi7} but we consider
-this exploration as an exercise orthogonal to this work.
-\clearpage
+%\section{Multi-Node Evaluation}\label{sec:multi-node-evaluation}
+%\subsection{Setup}\label{subsec:setup}
+%In this experiment, we seek to evaluate \sysname in the multi-node setting.
+%We use 4 nodes, where each node comprises 4 A100 GPUs fully interconnected via NVLink.
+%Across nodes, each GPU uses a single NIC providing 25 GB/s of bandwidth.
+%We set the number of experts to be $16$ and assign each GPU to host only one,
+%so the number of local experts is $1$.
+%Note that we define MIV formally as follows:
+%\[
+%    MIV = \frac{Tokens}{Experts} * local\_{experts} * precision * hidden\_size * 2 * n_{rg}
+%\]
+%where $n_{rg}$ is the number of remote peers and the multiplicative
+%factor of $2$ accounts for communication rounds (dispatch and combine).
+%$n_{rg} = 12$ for this experiment.
+%\subsection{Results}\label{subsec:results}
+%\begin{figure} [!ht]
+%    \centering
+%    \includegraphics[width=4in,keepaspectratio]{figures/multi_node_fail}
+%    \caption{Multi-node Latency evaluation.
+%    Embbeding dimension is $1024$ and FFN intermediate size is $4096$.
+%    We define Maximal Incast Volume (MIV) as the worst case upper bound for data volume that a
+%    NIC receives in a single incast occurence.}
+%    \label{fig:multi_fail}
+%\end{figure}
+%We observe a sublinear increase in latency as we scale the number of tokens.
+%However, we observe at $Tokens > 2048$, that the application fails to terminate
+%due to failure to receive expectant messages.
+%We hypothesize this failure to be due to buffer overflow at the networking hardware layer as is common for applications
+%that generate many and large messages~\cite{nerscNetworkNERSC} like our system.
+%We note that this failure is addressable by tuning hardware configurations~\cite{ofiwgFi_cxi7} but we consider
+%this exploration as an exercise orthogonal to this work.
+%\clearpage

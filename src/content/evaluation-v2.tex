@@ -19,29 +19,28 @@ We compare \sysname against several state-of-the-art MoE systems:
 (3) \textbf{Megatron-CUTLASS}~\cite{megatron-lm}, and
 (4) \textbf{Megatron-TE}: Megatron-LM with Transformer Engine~\cite{transformer-engine}.
 Comet relies on~\verb|cudaMemcpyPeerAsync|~\cite{fluxp2p}, while FasterMoE and Megatron-LM use NCCL exclusively for communication.
-We also evaluate \sysname on a multi-node environment and discuss our findings in \S\ref{sec:multi-node-evaluation}.
+%We also evaluate \sysname on a multi-node environment and discuss our findings in \S\ref{sec:multi-node-evaluation}.
 \subsection{Desiderata}\label{subsec:desiderata}
-In our experiments, we observe Comet exhibiting anomalously bad performance values at 8 GPUs,
+We observe Comet exhibiting anomalously bad performance values at 8 GPUs,
 so we exclude their results from evaluations at 8 GPUs and only include for results at $\leq$
 4 GPUs.
 \textbf{Note} we evaluate \sysname using FP32 precision whereas all baselines use FP16.
 We do so because (1) no baseline supports FP32 and (2) time constraints prevent us from tuning our system
 to peak performance at FP16.
-Most importantly, this precision discrepancy disadvantages \sysname by doubling the
-communication and computation precision, \emph{making our results a conservative lower bound}.
-Yet, as we show in the succeeding sections, \sysname outperforms all baselines.
+Most importantly, this precision discrepancy disadvantages \sysname by doubling its
+communication volume and computational workload.
 \subsection{Forward Latency}\label{subsec:forward-latency}
 \begin{figure}[!h]
     \centering
     \begin{subfigure}{0.49\textwidth}
         \centering
-        \includegraphics[width=\linewidth, keepaspectratio]{figures/scaling_tokens}
+        \includegraphics[width=\linewidth, keepaspectratio]{flash_figs/scaling_tokens}
         \caption{4 H100s}
         \label{sub:4gl}
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \centering
-        \includegraphics[width=\linewidth, keepaspectratio]{figures/scaling_tokens_8}
+        \includegraphics[width=\linewidth, keepaspectratio]{flash_figs/scaling_tokens_8}
         \caption{8 H100s}
         \label{sub:8gl}
     \end{subfigure}
@@ -63,12 +62,11 @@ penalties that plague other implementations.
 \begin{figure}[!ht]
     \centering
     \centering
-    \includegraphics[width=0.8\linewidth, keepaspectratio]{figures/sm_util}
-    \caption{Comparison of SM utilization, defined as the ratio of cycles in which SMs
+    \includegraphics[width=0.8\linewidth, keepaspectratio]{flash_figs/sm_util}
+    \caption{SM utilization, defined as the ratio of cycles in which SMs
     have at least one warp in flight
     to the total number of cycles~\cite{nsight-metrics}.
-    Values represent the average SM utilization over 100 iterations.
-    All experiments use T = 8K and E = 64 on two A100s}
+    Values represent the average SM utilization over 100 iterations.}
     \label{fig:smu}
 \end{figure}
 To quantify GPU efficiency, we measure Streaming Multiprocessor (SM) utilization during the forward pass (Figure~\ref{fig:smu}).
@@ -86,14 +84,14 @@ FlashDMoE ensures SMs remain busy with productive work throughout execution.
     \centering
     \begin{subfigure}{0.49\textwidth}
         \centering
-        \includegraphics[width=\linewidth, keepaspectratio]{figures/scaling_gpus_8}
+        \includegraphics[width=\linewidth, keepaspectratio]{flash_figs/scaling_gpus_8}
         \caption{Latency as Number of GPUs increases.}
         \label{fig:lng}
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \centering
-        \includegraphics[width=\linewidth, keepaspectratio]{figures/overlap_efficiency_8}
-        \caption{Weak scaling efficiency.}
+        \includegraphics[width=\linewidth, keepaspectratio]{flash_figs/overlap_efficiency_8}
+        \caption{Weak scaling efficiency}
         \label{fig:oe}
     \end{subfigure}
     \caption{Forward Latency as the \emph{Number of Tokens} per GPU increases. We define Overlap Efficiency $O_e$
@@ -118,7 +116,7 @@ achieve near-ideal overlap, even at scale.
 \begin{figure}[!ht]
     \centering
     \centering
-    \includegraphics[width=0.7\linewidth, keepaspectratio]{figures/throughput_8}
+    \includegraphics[width=0.7\linewidth, keepaspectratio]{flash_figs/throughput_8}
     \caption{Throughput as the amount of GPUs increases. We compute throughput as $\frac{T * N_G}{latency}$, where
         $N_G$ is the number of GPUs.}
     \label{fig:thr}
@@ -137,13 +135,13 @@ exploiting lower precision, but by maximizing hardware utilization and eliminati
     \centering
     \begin{subfigure}{0.49\textwidth}
         \centering
-        \includegraphics[width=\linewidth, keepaspectratio]{figures/scaling_experts}
+        \includegraphics[width=\linewidth, keepaspectratio]{flash_figs/scaling_experts}
         \caption{4 H100s}
         \label{sub:4gx}
     \end{subfigure}
     \begin{subfigure}{0.49\textwidth}
         \centering
-        \includegraphics[width=\linewidth, keepaspectratio]{figures/scaling_experts_8}
+        \includegraphics[width=\linewidth, keepaspectratio]{flash_figs/scaling_experts_8}
         \caption{8 H100s}
         \label{sub:8gx}
     \end{subfigure}
