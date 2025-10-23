@@ -32,14 +32,22 @@ which we provide in this work through complete kernel fusion and asynchronous de
     \label{fig:intro}
     \vspace{-10pt}
 \end{figure}
-\begin{table}[!ht]
+
+
+\myparab{Our Contributions: distributed MoE in a single kernel.}
+To overcome these fundamental inefficiencies in state-of-the-art MoE models, we develop \sysname a megakernel that integrates all MoE computation and communication tasks into a single persistent GPU kernel
+\ie a kernel that remains active for the entirety of the MoE operator (Figure~\ref{fig:intro} bottom left). Instead of multiple kernel launches coordinated by the CPU, \sysname requires launching only one kernel,
+significantly reducing the involvement of the CPU. Within the fused kernel, \sysname implements a reactive programming model to achieve
+fine-grained parallelism and loosely coupled, non-blocking execution among tens of thousands of GPU threads.
+
+\begin{wraptable}{r}{0.5\textwidth}
     \centering
     \small
     \renewcommand{\arraystretch}{0.9}
     \begin{tabular}{@{}lc@{}}
         \toprule
-        \textbf{MoE Implementation} & \textbf{Launched GPU Ops} \\ \midrule
-        \sysname & 1 \\
+        \textbf{MoE Implementation} & \textbf{GPU Ops} \\ \midrule
+        \sysname (this work) & 1 \\
         COMET~\cite{comet} & 33 \\
         Megatron-LM CUTLASS~\cite{megatron, 10.1145/3458817.3476209} & 85 \\
         Megatron-LM TE~\cite{megatron, 10.1145/3458817.3476209} & 261 \\
@@ -51,14 +59,8 @@ which we provide in this work through complete kernel fusion and asynchronous de
     \caption{
     We report number of GPU operations launched by MoE implementations by profiling with Nsight Systems~\cite{nsight-metrics}. We count operations in a single MoE layer (Gate $\rightarrow$ Dispatch $\rightarrow$ Expert $\rightarrow$ Combine) on 2 A100 GPUs, where each GPU has 32 experts. \sysname is the first to fully fuse the distributed MoE layer into a single GPU kernel.}
     \label{tab:gpuOps}
-\end{table}
-\subsection{Our Contributions: distributed MoE in a single kernel}
-To overcome these fundamental inefficiencies in state-of-the-art MoE models, we develop \sysname, where we integrate all MoE computation and communication tasks into a single persistent GPU kernel
-\ie a kernel that remains active for the entirety of the MoE operator (Figure~\ref{fig:intro} bottom left).
-Instead of multiple kernel launches coordinated by the CPU, \sysname requires launching only one kernel,
-significantly reducing the involvement of the CPU\@.
-Within the fused kernel, \sysname implements a reactive programming model to achieve
-fine-grained parallelism and loosely coupled, non-blocking execution among tens of thousands of GPU threads.
+\end{wraptable}
+
 
 \myparab{In-kernel Block scheduling and Tile parallelism.}
 \sysname implements \emph{tile-level parallelism},
@@ -71,7 +73,7 @@ and (2) decoding computational tasks from messages received from other GPUs (\em
 This design allows \sysname to dynamically assign tasks to GPU blocks based on \emph{readiness},
 ensuring that no GPU SM remains idle throughout the lifetime of the MoE operator.
 \sysname selects tile dimensions to maximize GPU arithmetic intensity
-while still benefitting from a high-degree of parallelism.
+while benefitting from a high-degree of parallelism.
 
 \myparab{Asynchronous and payload-efficient communication.}
 By redesigning the MoE operator from the ground up,
