@@ -8,7 +8,7 @@
 \bibliographystyle{unsrtnat}
 
 % ready for submission
-\usepackage[preprint]{neurips_2025}
+\usepackage[final]{neurips_2025}
 % to compile a preprint version, e.g., for submission to arXiv, add add the
 % [preprint] option:
 %     \usepackage[preprint]{neurips_2025}
@@ -66,15 +66,15 @@
 \newcommand{\todo}[1]{\color{red} [TODO: #1] \color{black}}
 \newcommand{\sysname}{FlashMoE\xspace}
 
-\providecommand{\alltoall}{\emph{AllToAll}\xspace}
-\providecommand{\allreduce}{\emph{AllReduce}\xspace}
-\providecommand{\allgather}{\emph{AllGather}\xspace}
-\providecommand{\ltol}{\textsc{LayerToLayer}\xspace}
+\providecommand{\alltoall}{\textsc{AllToAll}\xspace}
+\providecommand{\allreduce}{\textsc{AllReduce}\xspace}
+\providecommand{\allgather}{\textsc{AllGather}\xspace}
 \providecommand{\reducescatter}{\textsc{ReduceScatter}\xspace}
 
-\title{\sysname: Fast Distributed MoE in a Single Kernel}
+% \title{\sysname: Fast Distributed MoE in a Single Kernel}
+\title{\sysname: A Megakernel for Mixture-of-Experts}
 \author{%
-    Osayamen Jonathan Aimuyo\thanks{Correspondence to \texttt{osayamen@stanford.edu}} \\
+    Osayamen Jonathan Aimuyo \\
     Cornell University\\
     \texttt{oja7@cornell.edu} \\
 % examples of more authors

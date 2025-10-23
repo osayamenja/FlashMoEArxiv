@@ -8,45 +8,20 @@
     \label{fig:bg:moe}
     \vspace{-10pt}
 \end{wrapfigure}
-State-of-the-art large language models (LLMs), including DeepSeek-v3~\cite{deepep}, LLama4~\cite{llama4},
-DBRX~\cite{dbrx} and Snowflake Arctic~\cite{arctic},
-have adopted the Mixture-of-Experts (MoE) architecture for its
-computational efficiency and strong performance across many tasks.
-The traditional Transformer block consists of a self-attention module followed by a
-dense feed-forward network (FFN)~\cite{NIPS2017_3f5ee243}.
-In contrast, MoE architectures replace this single FFN with identically sized FFNs,
-otherwise known as experts, (Figure~\ref{fig:bg:moe}(b)).
-A trainable neural network, known as a gate function, sparsely activates these experts by
-dynamically routing input tokens to selected experts at runtime.
-This increase in model parameters (more FFNs) improves model quality without a
-\textit{corresponding increase in computational cost}.
+
+State-of-the-art large language models (LLMs)~\cite{deepep, llama4, dbrx, arctic, openai2025gptoss} have adopted the Mixture-of-Experts (MoE) architecture for its computational efficiency and strong performance across a range of tasks. The traditional Transformer block consists of a self-attention module followed by a dense feed-forward network (FFN)~\cite{NIPS2017_3f5ee243}. In contrast, MoE architectures replace this single FFN (Figure~\ref{fig:bg:moe}(a)) with many identically sized FFNs, known as experts (Figure~\ref{fig:bg:moe}(b)). A trainable neural network, known as a gate function, sparsely activates these experts by dynamically routing input tokens to the experts selected at runtime. This increase in model parameters due to more FFNs improves model quality without the corresponding increase in computational cost.
 
 \myparab{Communication overheads in MoE.}  
-As MoE model sizes grow, GPU memory constraints prevent hosting all experts on a single device.
-The standard practice is to distribute experts across multiple GPUs using expert parallelism (EP),
-which requires token routing via many-to-many communication in \alltoall or \allgather~\cite{deepep, arctic, dbrx, 10.1145/3577193.3593704}.
-Another round of said many-to-many communication is also necessary for restoring the permuted tokens processed by experts
-to their original order within the sequence.
-Existing work has observed these communication operations
-taking 68\% of total runtime~\cite{10.1145/3603269.3604869, MLSYS2024_339caf45},
-during which the GPU is completely idle, unless the implementation explicitly overlaps with computation.
-This form of pipelining is challenging to achieve efficiently because it requires
-\emph{asynchronous GPU-driven communication} and \emph{kernel fusion} to maximize the overlap efficiency.
-Typically, inter-GPU communication APIs available in frameworks like PyTorch are not of this kind but instead are
-\emph{CPU-driven}~\cite{nccl}.
+As MoE model sizes grow, GPU memory constraints prevent hosting all experts on a single device. The standard practice is to distribute experts across multiple GPUs using expert parallelism (EP), which requires token routing via many-to-many communication primitives like \alltoall~\cite{deepep, arctic, dbrx, 10.1145/3577193.3593704} (Figure~\ref{fig:bg:moe}(c)). Another round of \alltoall communication restores the permuted tokens processed by experts to their original order in the sequence. \alltoall communication is challenging to optimize on GPU networks and is highly sensitive to straggler delays --- a phenomenon where a single \emph{straggler} GPU delays all others from making progress~\cite{stragglar}. These communication operations can account for 68\% of the total runtime~\cite{10.1145/3603269.3604869, MLSYS2024_339caf45}, causing GPUs to remain idle (Figure~\ref{fig:intro}, top left).
 
-\myparab{Kernel launch overheads in MoE.}  
-The efficacy of communication overlap is further limited by the overhead of
-launching many kernels from the CPU\@.
-Specifically, existing implementations~\cite{pmlr-v162-rajbhandari22a, comet, megatron, fastermoe}
-require launching a large number of kernels per a single layer pass (see Table~\ref{tab:gpuOps}).
-Frequent kernel launches negatively affect performance by:
-(1) creating non-deterministic kernel start times across GPUs, exacerbating straggler issues;
-(2) introducing unnecessary synchronization points, causing GPUs to wait on peers or the CPU before proceeding;
-and (3) incurring repeated global memory round trips at kernel boundaries.
-Although CUDA graphs~\cite{cuda_graphs_nvidia_blog} can partially mitigate the first issue in static workloads,
-they are incompatible with MoE's dynamic expert routing patterns.
-Addressing the remaining issues requires novel solutions,
+
+% Existing work has observed these communication operations can take 68\% of total runtime~\cite{10.1145/3603269.3604869, MLSYS2024_339caf45}, during which the GPU is idle, unless the implementation explicitly overlaps with computation.
+% To mitigate these communication bottlenecks, recent work pipelines computation with communication tasks (Figure~\ref{fig:intro}, middle left). This form of pipelining is challenging to achieve efficiently because it requires \emph{asynchronous GPU-driven communication} and \emph{kernel fusion} to maximize the overlap efficiency. Typically, inter-GPU communication APIs available in frameworks like PyTorch are not of this kind but instead are \emph{CPU-driven}~\cite{nccl}.
+
+\myparab{Kernel launch overheads in MoE.} 
+To mitigate these communication bottlenecks, recent work pipelines computation with communication kernels (Figure~\ref{fig:intro}, middle left). However, the effectiveness of these solutions is limited by the overhead of launching many kernels from the CPU. 
+Specifically, existing implementations~\cite{pmlr-v162-rajbhandari22a, comet, megatron, fastermoe} launch a large number of kernels per a single layer pass (see Table~\ref{tab:gpuOps}). Frequent kernel launches negatively affect performance by:
+(1) creating non-deterministic kernel start times across GPUs, exacerbating straggler issues; (2) introducing unnecessary synchronization points, causing GPUs to wait on peers or the CPU before proceeding; and (3) incurring repeated global memory round trips at kernel boundaries. Although CUDA graphs~\cite{cuda_graphs_nvidia_blog} can partially mitigate the first issue in static workloads, they are incompatible with MoE's dynamic expert routing patterns. Addressing the remaining issues requires novel solutions,
 which we provide in this work through complete kernel fusion and asynchronous device-initiated communication.
 
 
@@ -79,9 +54,8 @@ which we provide in this work through complete kernel fusion and asynchronous de
         \bottomrule
     \end{tabular}
 \end{table}
-\subsection{Our Contributions: DMoE in a single kernel}
-To overcome these fundamental inefficiencies in state-of-the-art MoE models, we develop \sysname, where we
-integrate all DMoE computation and communication tasks into a single persistent GPU kernel
+\subsection{Our Contributions: distributed MoE in a single kernel}
+To overcome these fundamental inefficiencies in state-of-the-art MoE models, we develop \sysname, where we integrate all DMoE computation and communication tasks into a single persistent GPU kernel
 \ie a kernel that remains active for the entirety of the MoE operator (Figure~\ref{fig:intro} bottom left).
 Instead of multiple kernel launches coordinated by the CPU, \sysname requires launching only one kernel,
 significantly reducing the involvement of the CPU\@.
