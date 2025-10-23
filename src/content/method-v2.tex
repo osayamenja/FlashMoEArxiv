@@ -96,19 +96,19 @@ dispatches to expert $e$. $w$ is the combine weight (Equation~\ref{eq:combine1})
 The tuple structure of $T_{\phi}$ is an implementation detail. $G_{\phi} \in \mathbb{R}^{S \times E}$ captures
 the affinity scores produced by the gate (Equation~\ref{eq:combine2}).
 
-\begin{figure}[!ht]
-    \centering
-    \includegraphics[width=3.5in]{flash_figs/mem2}
-    \caption{\emph{GPU Memory Hierarchy}.
-    The inverted pyramid (left) shows the load/store access latency~\cite{10579250, amperearch, ptx}.
-    The table above outlines the capacity for different memory tiers (for A100 GPUs).
-    The shared memory and register capacity are static configurations for \sysname.
-    The right figure shows accessibility scopes: on-chip \textbf{registers}
-    are scoped to a thread; on-chip \textbf{shared memory} is visible to all threads in a block;
-    and off-chip \textbf{global memory} is accessible by all threads on device.}
-    \label{fig:mem}
-    \vspace{-3mm}
-\end{figure}
+%\begin{figure}[!ht]
+%    \centering
+%    \includegraphics[width=3.5in]{flash_figs/mem2}
+%    \caption{\emph{GPU Memory Hierarchy}.
+%    The inverted pyramid (left) shows the load/store access latency~\cite{10579250, amperearch, ptx}.
+%    The table above outlines the capacity for different memory tiers (for A100 GPUs).
+%    The shared memory and register capacity are static configurations for \sysname.
+%    The right figure shows accessibility scopes: on-chip \textbf{registers}
+%    are scoped to a thread; on-chip \textbf{shared memory} is visible to all threads in a block;
+%    and off-chip \textbf{global memory} is accessible by all threads on device.}
+%    \label{fig:mem}
+%    \vspace{-3mm}
+%\end{figure}
 
 \myparab{Inter-actor interactions in \sysname.}
 \sysname decomposes MoE computation and communication at the granularity of a tile, a statically sized partition of a tensor,
@@ -196,13 +196,13 @@ Whereas, the expert-combine operation is formalized as:
 \subsection{Symmetric Tensor Layout for Inter-GPU Communication}\label{subsec:symmetric-tensor-layout}
 \begin{figure}[!ht]
     \centering
-    \begin{subfigure}{0.62\textwidth}
+    \begin{subfigure}{0.45\textwidth}
         \centering
         \includegraphics[width=\linewidth, keepaspectratio]{figures/mem_layout}
         \caption{\emph{Symmetric Tensor Layout across 2 Expert-parallel Processes}.}
         \label{fig:mem_layout}
     \end{subfigure}
-    \begin{subfigure}{0.36\textwidth}
+    \begin{subfigure}{0.25\textwidth}
         \centering
         \includegraphics[width=\linewidth, keepaspectratio]{figures/sm_big}
         \caption{\emph{State machine for DMA (top) and RDMA (bottom) communication.}}
@@ -210,7 +210,7 @@ Whereas, the expert-combine operation is formalized as:
     \end{subfigure}
 \end{figure}
 
-Within a single GPU device, the actors in \sysname communicate through the GPU's memory subsystem (see Figure~\ref{fig:mem}).
+Within a single GPU device, the actors in \sysname communicate through the GPU's memory subsystem.
 Specifically, the Scheduler and Subscriber actors exchange data via fast shared memory, while other actor pairs
 communicate through global memory.
 For communication across multiple devices, \sysname uses \emph{device-initiated communication},
