@@ -59,16 +59,17 @@ degrade steeply due to increasing communication costs as token buffers increase 
 These results highlight FlashDMoE’s ability to scale token throughput without suffering from the communication
 penalties that plague other implementations.
 \subsection{GPU Utilization}\label{subsec:gpu-utilization}
-\begin{figure}[!ht]
+
+\begin{wrapfigure}{r}{0.5\textwidth}
+    \vspace{-10pt}
     \centering
-    \centering
-    \includegraphics[width=0.8\linewidth, keepaspectratio]{flash_figs/sm_util}
+    \includegraphics[width=0.9\linewidth, keepaspectratio]{flash_figs/sm_util}
     \caption{SM utilization, defined as the ratio of cycles in which SMs
     have at least one warp in flight
     to the total number of cycles~\cite{nsight-metrics}.
     Values represent the average SM utilization over 100 iterations.}
     \label{fig:smu}
-\end{figure}
+\end{wrapfigure}
 To quantify GPU efficiency, we measure Streaming Multiprocessor (SM) utilization during the forward pass (Figure~\ref{fig:smu}).
 FlashDMoE achieves 93.17\% average SM utilization,
 over \textbf{9}x higher than FasterMoE (9.67\%), \textbf{6.8}x higher than DeepEP+Megatron-LM (13.55\%)
@@ -112,19 +113,18 @@ In contrast, \sysname demonstrates uniform latency as expected since the workloa
 GPU is fixed in this weak scaling experiment.
 These results further corroborate that \sysname's actor-based design and asynchronous data movement
 achieve near-ideal overlap, even at scale.
+
 \subsection{Throughput}\label{subsec:throughput}
-\begin{figure}[!ht]
+\begin{wrapfigure}{r}{0.5\textwidth}
+    \vspace{-15pt}
     \centering
-    \centering
-    \includegraphics[width=0.7\linewidth, keepaspectratio]{flash_figs/throughput_8}
-    \caption{Throughput as the amount of GPUs increases. We compute throughput as $\frac{T * N_G}{latency}$, where
-        $N_G$ is the number of GPUs.}
+    \includegraphics[width=\linewidth, keepaspectratio]{flash_figs/throughput_8}
+    % \caption{Throughput as the amount of GPUs increases. We compute throughput as $\frac{T * N_G}{latency}$, where $N_G$ is the number of GPUs.}
+    \caption{Throughput when scaling the number of GPUs, computed as $\frac{T \times N_G}{\text{latency}}$.}
     \label{fig:thr}
-\end{figure}
+\end{wrapfigure}
 Throughput, measured in tokens per second (MTokens/s), reflects end-to-end system efficiency.
-As shown in Figure~\ref{fig:thr}, \sysname
-scales linearly with GPU count,
-reaching 17.7 MTokens/s at 8 GPUs.
+As shown in Figure~\ref{fig:thr}, \sysname scales linearly with GPU count, reaching 17.7 MTokens/s at 8 GPUs.
 This is over \textbf{5.7}x higher than FasterMoE and \textbf{4.9}x higher than Megatron-TE and Megatron-CUTLASS\@.
 Notably, these results are achieved despite \emph{FlashDMoE operating entirely in FP32,
 while baselines use FP16}.
