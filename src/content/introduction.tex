@@ -12,14 +12,14 @@
 State-of-the-art large language models (LLMs)~\cite{deepep, llama4, dbrx, arctic, openai2025gptoss} have adopted the Mixture-of-Experts (MoE) architecture for its computational efficiency and strong performance across a range of tasks. The traditional Transformer block consists of a self-attention module followed by a dense feed-forward network (FFN)~\cite{NIPS2017_3f5ee243}. In contrast, MoE architectures replace this single FFN (Figure~\ref{fig:bg:moe}(a)) with many identically sized FFNs, known as experts (Figure~\ref{fig:bg:moe}(b)). A trainable neural network, known as a gate function, sparsely activates these experts by dynamically routing input tokens to the experts selected at runtime. This increase in model parameters due to more FFNs improves model quality without the corresponding increase in computational cost.
 
 \myparab{Communication overheads in MoE.}  
-As MoE model sizes grow, GPU memory constraints prevent hosting all experts on a single device. The standard practice is to distribute experts across multiple GPUs using expert parallelism (EP), which requires token routing via many-to-many communication primitives like \alltoall~\cite{deepep, arctic, dbrx, 10.1145/3577193.3593704} (Figure~\ref{fig:bg:moe}(c)). Another round of \alltoall communication restores the permuted tokens processed by experts to their original order in the sequence. \alltoall communication is challenging to optimize on GPU networks and is highly sensitive to straggler delays --- a phenomenon where a single \emph{straggler} GPU delays all others from making progress~\cite{stragglar}. These communication operations can account for 68\% of the total runtime~\cite{10.1145/3603269.3604869, MLSYS2024_339caf45}, causing GPUs to remain idle (Figure~\ref{fig:intro}, top left).
+As MoE model sizes grow, GPU memory constraints prevent hosting all experts on a single device. The standard practice is to distribute experts across multiple GPUs using expert parallelism (EP), which requires token routing via many-to-many communication primitives like \alltoall~\cite{deepep, arctic, dbrx, 10.1145/3577193.3593704} (Figure~\ref{fig:bg:moe}(c)). Another round of \alltoall communication restores the permuted tokens processed by experts to their original order in the sequence. \alltoall communication is challenging to optimize on GPU networks and is highly sensitive to straggler delays --- a phenomenon where a single straggler GPU delays all others from making progress~\cite{stragglar}. These communication operations can account for 68\% of the total runtime~\cite{10.1145/3603269.3604869, MLSYS2024_339caf45}, causing GPUs to remain idle (Figure~\ref{fig:intro}, top left).
 
 
 % Existing work has observed these communication operations can take 68\% of total runtime~\cite{10.1145/3603269.3604869, MLSYS2024_339caf45}, during which the GPU is idle, unless the implementation explicitly overlaps with computation.
 % To mitigate these communication bottlenecks, recent work pipelines computation with communication tasks (Figure~\ref{fig:intro}, middle left). This form of pipelining is challenging to achieve efficiently because it requires \emph{asynchronous GPU-driven communication} and \emph{kernel fusion} to maximize the overlap efficiency. Typically, inter-GPU communication APIs available in frameworks like PyTorch are not of this kind but instead are \emph{CPU-driven}~\cite{nccl}.
 
 \myparab{Kernel launch overheads in MoE.} 
-To mitigate these communication bottlenecks, recent work pipelines computation with communication kernels (Figure~\ref{fig:intro}, middle left). However, the effectiveness of these solutions is limited by the overhead of launching many kernels from the CPU. 
+To mitigate these communication bottlenecks, recent work pipelines computation with communication kernels (Figure~\ref{fig:intro}, left middle). However, the effectiveness of these solutions is limited by the overhead of launching many kernels from the CPU. 
 Specifically, existing implementations~\cite{pmlr-v162-rajbhandari22a, comet, megatron, fastermoe} launch a large number of kernels per a single layer pass (see Table~\ref{tab:gpuOps}). Frequent kernel launches negatively affect performance by:
 (1) creating non-deterministic kernel start times across GPUs, exacerbating straggler issues; (2) introducing unnecessary synchronization points, causing GPUs to wait on peers or the CPU before proceeding; and (3) incurring repeated global memory round trips at kernel boundaries. Although CUDA graphs~\cite{cuda_graphs_nvidia_blog} can partially mitigate the first issue in static workloads, they are incompatible with MoE's dynamic expert routing patterns. Addressing the remaining issues requires novel solutions,
 which we provide in this work through complete kernel fusion and asynchronous device-initiated communication.
@@ -34,17 +34,11 @@ which we provide in this work through complete kernel fusion and asynchronous de
 \end{figure}
 \begin{table}[!ht]
     \centering
-    \caption{\textbf{Kernel Fusion Comparison.}
-    Our method is the first to fully fuse the DMoE layer into a single GPU kernel.
-    We report GPU operations from profiling with Nsight Systems. We count within a single layer
-        (Gate $\rightarrow$ Dispatch $\rightarrow$ Expert $\rightarrow$ Combine) on 2 A100s,
-        where each GPU has 32 experts.}
-    \label{tab:gpuOps}
-    \setlength{\tabcolsep}{8pt}
+    \small
     \renewcommand{\arraystretch}{0.9}
     \begin{tabular}{@{}lc@{}}
         \toprule
-        \textbf{Works} & \textbf{Launched GPU Ops} \\ \midrule
+        \textbf{MoE Implementation} & \textbf{Launched GPU Ops} \\ \midrule
         \sysname & 1 \\
         COMET~\cite{comet} & 33 \\
         Megatron-LM CUTLASS~\cite{megatron, 10.1145/3458817.3476209} & 85 \\
@@ -53,9 +47,13 @@ which we provide in this work through complete kernel fusion and asynchronous de
         DeepSpeedMoE~\cite{pmlr-v162-rajbhandari22a} & 550 \\
         \bottomrule
     \end{tabular}
+    \vspace{1mm}
+    \caption{
+    We report number of GPU operations launched by MoE implementations by profiling with Nsight Systems~\cite{nsight-metrics}. We count operations in a single MoE layer (Gate $\rightarrow$ Dispatch $\rightarrow$ Expert $\rightarrow$ Combine) on 2 A100 GPUs, where each GPU has 32 experts. \sysname is the first to fully fuse the distributed MoE layer into a single GPU kernel.}
+    \label{tab:gpuOps}
 \end{table}
 \subsection{Our Contributions: distributed MoE in a single kernel}
-To overcome these fundamental inefficiencies in state-of-the-art MoE models, we develop \sysname, where we integrate all DMoE computation and communication tasks into a single persistent GPU kernel
+To overcome these fundamental inefficiencies in state-of-the-art MoE models, we develop \sysname, where we integrate all MoE computation and communication tasks into a single persistent GPU kernel
 \ie a kernel that remains active for the entirety of the MoE operator (Figure~\ref{fig:intro} bottom left).
 Instead of multiple kernel launches coordinated by the CPU, \sysname requires launching only one kernel,
 significantly reducing the involvement of the CPU\@.
@@ -71,7 +69,7 @@ In addition, we designate a dedicated Operating System (OS) block (4 warps) to p
 (1) scheduling computational work to processors (\emph{scheduler}),
 and (2) decoding computational tasks from messages received from other GPUs (\emph{subscriber}).
 This design allows \sysname to dynamically assign tasks to GPU blocks based on \emph{readiness},
-ensuring that no GPU SM remains idle throughout the lifetime of the DMoE operator.
+ensuring that no GPU SM remains idle throughout the lifetime of the MoE operator.
 \sysname selects tile dimensions to maximize GPU arithmetic intensity
 while still benefitting from a high-degree of parallelism.
 
