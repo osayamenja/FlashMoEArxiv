@@ -47,9 +47,9 @@ eliminating kernel launch overhead entirely by requiring only a single kernel la
     \includegraphics[width=\linewidth]{figures/actors}
     \caption{\emph{DMoE Functional Dependencies Expressed as a Chain of Actor Interactions}.
     We denote $S_b$, $S_h$, and $P$ as the
-    Subscriber, Scheduler and Processor actors, respectively. For any actor $a \in \{S_b,\>S_b,\>P\}$,
+    Subscriber, Scheduler and Processor actors, respectively. For any actor $a \in \{S_b,\>S_h,\>P\}$,
         $a^i$ identifies an actor on GPU $i$. We define $D^j_i$ as the operator,
-        where GPU $j$ dispatches packets of tiles to GPU $i$,
+        where GPU $j$ dispatches packets of tiles to GPU $i$.
         This diagram expresses task dependencies at the granularity of a tile, namely
         $GEMM_0$, $GEMM_1$, combine and communication produce an output tile.
         Notifications occur as signals propagated through shared memory (subscriber $\leftrightarrow$ scheduler) or
@@ -90,7 +90,7 @@ $O \in \mathbb{R}^{S \times H}$ the output matrix;
 and $X \in \mathbb{R}^{E\times H \times D}$ is a 3-D tensor of expert weights,
 where $E$ denotes the number of local experts for the executing GPU, $H$ is the embedding dimension,
 $D$ is the FFN intermediate dimension and $S$ is the sequence length.
-$T_{\phi} \in \left(\mathbb{R}^2\right)^{E \times C}$
+$T_{\phi} \in \left(\mathbb{N}\times\mathbb{R}\right)^{E \times C}$
 is a routing table data structure, where $T_{\phi}\left( e, c\right) = (i, w)$ indicates that token $i$ at slot $c$
 dispatches to expert $e$. $w$ is the combine weight (Equation~\ref{eq:combine1}) and $C$ is expert capacity.
 The tuple structure of $T_{\phi}$ is an implementation detail. $G_{\phi} \in \mathbb{R}^{S \times E}$ captures

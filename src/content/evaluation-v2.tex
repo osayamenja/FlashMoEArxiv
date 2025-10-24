@@ -21,7 +21,7 @@ We compare \sysname against several state-of-the-art MoE systems:
 Comet relies on~\verb|cudaMemcpyPeerAsync|~\cite{fluxp2p}, while FasterMoE and Megatron-LM use NCCL exclusively for communication.
 %We also evaluate \sysname on a multi-node environment and discuss our findings in \S\ref{sec:multi-node-evaluation}.
 
-\myparab{Desiderata}.
+\myparab{Desiderata.}
 We observe Comet exhibiting anomalously bad performance values at 8 GPUs,
 so we exclude their results from evaluations at 8 GPUs and only include for results at $\leq$
 4 GPUs. We evaluate \sysname using FP32 precision whereas all baselines use FP16.
@@ -142,7 +142,7 @@ achieve near-ideal overlap.
 We analyze how \sysname scales with increasing number of experts at fixed sequence length (T = 16K).
 Note that for the discussed plots, the number of experts on the x-axis is the \emph{total number across all GPUs}.
 Each GPU gets 1/8th of this value.
-As seen in Figure\ref{fig:xs}, \sysname maintains \emph{low, uniform} latency, as desired,
+As seen in Figure~\ref{fig:xs}, \sysname maintains \emph{low, uniform} latency, as desired,
 even as the number of experts grows from 8 to 128.
 In contrast, baselines exhibit superlinear latency increases due to increased kernel launch overheads.
 \sysname outperforms these baselines by up to \textbf{4}X at 4 H100s and \textbf{6.6}X at 8 H100s, both at 128 experts.
