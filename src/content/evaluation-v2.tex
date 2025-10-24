@@ -47,16 +47,16 @@ communication volume and computational workload.
     \caption{Forward Latency as the \emph{Number of Tokens} per GPU increases.}
     \label{fig:fl}
 \end{figure}
-We first measure the forward latency of FlashDMoE across different sequence lengths on both 4 and 8 GPU setups
+We first measure the forward latency of \sysname across different sequence lengths on both 4 and 8 GPU setups
 (Figure~\ref{fig:fl}).
-FlashDMoE consistently outperforms all baselines,
+\sysname consistently outperforms all baselines,
 with especially notable improvements at longer sequence lengths.
 On 4 GPUs, it achieves up to \textbf{4.6}x speedup over Megatron-TE at 16K tokens,
 and \textbf{2.6}x over FasterMoE.
 The gains are even more pronounced at 8 GPUs
-where FlashDMoE maintains low latency, exhibiting up to \textbf{6.4}x speedup over baselines that
+where \sysname maintains low latency, exhibiting up to \textbf{6.4}x speedup over baselines that
 degrade steeply due to increasing communication costs as token buffers increase proportionally.
-%These results highlight FlashDMoE’s ability to scale token throughput without suffering from the communication
+%These results highlight \sysname’s ability to scale token throughput without suffering from the communication
 %penalties that plague other implementations.
 \subsection{GPU Utilization}\label{subsec:gpu-utilization}
 \begin{wrapfigure}{r}{0.5\textwidth}
@@ -70,15 +70,29 @@ degrade steeply due to increasing communication costs as token buffers increase 
     \label{fig:smu}
 \end{wrapfigure}
 To quantify GPU efficiency, we measure Streaming Multiprocessor (SM) utilization during the forward pass (Figure~\ref{fig:smu}).
-FlashDMoE achieves 93.17\% average SM utilization,
+\sysname achieves 93.17\% average SM utilization,
 over \textbf{9}x higher than FasterMoE (9.67\%), \textbf{6.8}x higher than DeepEP+Megatron-LM (13.55\%)
 \textbf{4}x higher than Megatron-TE (59.11\%), and
 \textbf{2.2}x higher than Comet (42.31\%).
 This improvement stems from our fully fused kernel architecture and
 fine-grained pipelining of compute and communication tasks.
 By eliminating idle gaps due to kernel launches and enabling in-kernel task scheduling,
-FlashDMoE ensures SMs remain busy with productive work throughout execution.
-
+\sysname ensures SMs remain busy with productive work throughout execution.
+\subsection{Throughput}\label{subsec:throughput}
+\begin{wrapfigure}{r}{0.6\textwidth}
+    \vspace{-15pt}
+    \centering
+    \includegraphics[width=0.9\linewidth, keepaspectratio]{flash_figs/throughput_8}
+    % \caption{Throughput as the amount of GPUs increases. We compute throughput as $\frac{T * N_G}{latency}$, where $N_G$ is the number of GPUs.}
+    \caption{Throughput when scaling the number of GPUs, computed as $\frac{T \times N_G}{\text{latency}}$.}
+    \label{fig:thr}
+\end{wrapfigure}
+As shown in Figure~\ref{fig:thr}, \sysname scales linearly with GPU count, reaching 17.7 MTokens/s at 8 GPUs.
+This is over \textbf{5.7}x higher than FasterMoE and \textbf{4.9}x higher than Megatron-TE and Megatron-CUTLASS\@.
+Notably, these results are achieved despite \emph{\sysname operating entirely in FP32,
+    while baselines use FP16}.
+This indicates that \sysname’s design eliminates throughput bottlenecks not by
+exploiting lower precision, but by maximizing hardware utilization and eliminating host-driven inefficiencies.
 \subsection{Overlap Efficiency}\label{subsec:overlap-efficiency}
 \begin{figure}[!h]
     \centering
@@ -94,7 +108,7 @@ FlashDMoE ensures SMs remain busy with productive work throughout execution.
         \caption{Weak scaling efficiency}
         \label{fig:oe}
     \end{subfigure}
-    \caption{Forward Latency as the \emph{Number of Tokens} per GPU increases. We define Overlap Efficiency $O_e$
+    \caption{Weak scaling efficiency. We define Overlap Efficiency $O_e$
         to be $O_e = T(2) / T(N_G)$, where $T(N_G)$ is the latency at $N_G$ GPUs and $T(2)$ is the latency at 2 GPUs.}
     \label{fig:oet}
 \end{figure}
@@ -107,28 +121,6 @@ with overlap efficiency dropping below 50\% at $\geq 4$ GPUs. \sysname gives up 
 Figure~\ref{fig:lng} further illuminates this efficiency, as \sysname shows stable forward latency growth.
 These results corroborate that \sysname's actor-based design and asynchronous data movement
 achieve near-ideal overlap.
-%whereas baselines Megatron-CUTLASS and Megatron-TE experience approximately linear
-%latency amplification while FasterMoE exhibits sublinear scaling.
-%We attribute this suboptimal performance to exposed communication.
-%In contrast, \sysname demonstrates uniform latency as expected since the workload per
-%GPU is fixed in this weak scaling experiment.
-%These results corroborate that \sysname's actor-based design and asynchronous data movement
-%achieve near-ideal overlap.
-\subsection{Throughput}\label{subsec:throughput}
-\begin{wrapfigure}{r}{0.4\textwidth}
-    \vspace{-15pt}
-    \centering
-    \includegraphics[width=0.9\linewidth, keepaspectratio]{flash_figs/throughput_8}
-    % \caption{Throughput as the amount of GPUs increases. We compute throughput as $\frac{T * N_G}{latency}$, where $N_G$ is the number of GPUs.}
-    \caption{Throughput when scaling the number of GPUs, computed as $\frac{T \times N_G}{\text{latency}}$.}
-    \label{fig:thr}
-\end{wrapfigure}
-As shown in Figure~\ref{fig:thr}, \sysname scales linearly with GPU count, reaching 17.7 MTokens/s at 8 GPUs.
-This is over \textbf{5.7}x higher than FasterMoE and \textbf{4.9}x higher than Megatron-TE and Megatron-CUTLASS\@.
-Notably, these results are achieved despite \emph{FlashDMoE operating entirely in FP32,
-while baselines use FP16}.
-This indicates that FlashDMoE’s design eliminates throughput bottlenecks not by
-exploiting lower precision, but by maximizing hardware utilization and eliminating host-driven inefficiencies.
 \subsection{Expert Scalability}\label{subsec:expert-scalability}
 \begin{figure}[!h]
     \centering
@@ -157,4 +149,4 @@ In contrast, baselines exhibit superlinear latency increases due to increased ke
 \sysname’s payload-efficient communication and scheduler-driven
 in-kernel dispatching allow it to sustain expert parallelism
 without incurring the communication and orchestration penalties seen in other systems.
-These results reinforce FlashDMoE’s scalability for ultra-sparse MoE configurations.
+These results reinforce \sysname’s scalability for ultra-sparse MoE configurations.

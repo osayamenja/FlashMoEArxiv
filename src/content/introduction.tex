@@ -81,7 +81,6 @@ Realizing the single-kernel design of \sysname required
 solving several technical challenges to achieve high performance: (1) lightweight computational dependency management; (2) navigating optimal SM occupancy configurations; (3) implementing in-device BLAS operations; (4) minimizing inter- and intra-device synchronization overheads; (5) implementing transfer-awareness by leveraging DMA over Unified Virtual Addressing (UVA) when available. In addressing these challenges, \sysname's design presents a radical departure from traditional synchronous \alltoall collectives, where GPUs exhibit significant idle time during layer execution. For device-initiated communication, \sysname uses NVSHMEM~\cite{nvshm} to establish a global address space across all GPUs for Direct Memory Access (DMA) communication. For in-device BLAS, \sysname develops custom high-performance GEMM operations via CUTLASS~\cite{Thakkar_CUTLASS_2023}.
 
 \myparab{Results.}
-We evaluate \sysname across multiple GPUs split across multiple nodes.
 Our evaluations show that \sysname achieves \textbf{6}$\times$ latency speedup,
 \textbf{9}$\times$ higher GPU utilization, \textbf{4}$\times$ better weak scaling efficiency and \textbf{5.7}$\times$
 increased throughput compared to state-of-the-art implementations.

@@ -30,11 +30,9 @@ The symmetric tensor layout $L$ is write-write conflict-free.
     with $p_{t_1} = p_{t_2}$ and valid destination coordinates
     $i_1, i_2$, where $i_1 = i_2$ lexicographically and both are unpacked below.
     \[
-        i_1 = (p_1, r_1, b_1, e_1, c_1),\> i_1 = (p_2, r_2, b_2, e_2, c_2)
+        i_1 = (p_1, r_1, b_1, e_1, c_1),\> i_2 = (p_2, r_2, b_2, e_2, c_2)
     \]
-    Note that for the message staging state, even though $i_1 = i_2$ the resultant memory segments reside in
-    different physical buffers resident in $p_{s_1}$ and $p_{s_2}$ respectively.
-    Therefore, for this state, there are no conflicts as intra-process writes always have distinct $c_j$
+    Note that intra-process writes always have distinct $c_j$
     coordinates, where $j \in \{0, C - 1\}$.
     For inter-process transfers, we have two cases.
 
