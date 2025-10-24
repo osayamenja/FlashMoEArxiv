@@ -47,3 +47,30 @@ The symmetric tensor layout $L$ is write-write conflict-free.
     \newline To ensure validity for $i_1$ and $i_2$, it is the case that $p_1 = p_{s_1}$ and $p_2 = p_{s_2}$.
     However, this implies that $i_1 \neq i_2$ yielding a contradiction as desired.
 \end{proof}
+
+\subsection{Memory Overhead}\label{sec:eval:memory}
+We measure the GPU memory required for the symmetric tensor $L$ and runtime bookkeeping state of \sysname.
+The memory overhead primarily depends on the tile size, expert capacity ($EC$), and the number of experts ($E$).
+Table~\ref{tab:memory-overhead} summarizes the memory overhead across recent MoE models~\cite{moonlight,grok,snowflake-arctic,qwen3,mixtral,deepseek} during inference, showing that \sysname maintains a modest and predictable memory footprint.
+In particular, the symmetric tensor ($ST$) accounts for at most 2.15\% additional memory relative to the total inference memory requirements.
+\begin{table}[!ht]
+    \centering
+    \caption{Memory overhead of \sysname (tile size $bM = 128$, $Size(T) = \text{Tokens} \times 4\text{KB}$).}
+    \label{tab:memory-overhead}
+    \small
+    \setlength{\tabcolsep}{5pt}
+    \renewcommand{\arraystretch}{0.9}
+    \begin{tabular}{ccccccccc}
+        \toprule
+        \textbf{Model} & \textbf{Params} & \textbf{S} & \textbf{E} & \textbf{H} & \textbf{I} & \textbf{ST (GB)} & \textbf{Model (GB)} & \textbf{Overhead (\%)} \\
+        \midrule
+        Moonlight-16B-A3B  & 16B  & 8K   & 64   & 2K   & 1.38K  & 0.25  & 59    & \textbf{0.49} \\
+        Grok-1             & 314B & 8K   & 8    & 6K   & 32K     & 0.75  & 1169  & \textbf{0.15} \\
+        Snowflake-Arctic   & 479B & 4K   & 128  & 7K   & 4.75K   & 1.75  & 1784  & \textbf{0.12} \\
+        Qwen3-235B-A22B    & 235B & 40K  & 128  & 4K   & 1.5K    & 3.00  & 875   & \textbf{0.38} \\
+        Mixtral 8x7B       & 47B  & 32K  & 8    & 4K   & 14K     & 2.00  & 175   & \textbf{2.15} \\
+        DeepSeek-V3        & 685B & 160K & 256  & 7K   & 2K      & 1.50  & 2551  & \textbf{0.11} \\
+        \bottomrule
+    \end{tabular}
+    \vspace{-0.4cm}
+\end{table}

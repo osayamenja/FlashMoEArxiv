@@ -1,26 +1,16 @@
 \section{Limitations and Future Work}\label{sec:limitations}
-Despite the performance gains and architectural innovations of \sysname, there are several limitations
-worth acknowledging---both practical and conceptual---that open the door to future research.
-\begin{itemize}
-    \item \textbf{Programming complexity.} Developing fully fused, persistent kernels is a non-trivial engineering task.
-    While \sysname proves the feasibility and benefit of such kernels,
-    their construction demands deep expertise in GPU architectures,
-    synchronization and distributed protocols, and memory hierarchies.
-    This high barrier to entry limits adoption.
-    Future work may consider compiler-level abstractions or DSLs to democratize this technique.
+\myparab{Engineering complexity.} Fully fused, persistent kernels demand deep GPU + distributed-systems expertise;
+future work may investigate compiler/DSL abstractions to lower this barrier.
 
-    \item \textbf{FP16 support and shared memory access patterns.}
-    Although modern GPUs natively support half-precision computation,
-    adapting \textsc{FlashDMoE} to FP16 is non-trivial for the Processor's computational operators.
-    Specifically, our manually tuned swizzle shared memory layouts are not the most efficient
-    template parameters for CUTLASS' Collective Mainloop operator which we use to implement our in-device GEMMs.
-    This suboptimal configuration degrades memory throughput as shown in \S\ref{sec:fp16-memory-throughput}.
-    Overcoming this for Ampere GPUs and below would require careful investigation of optimal layouts, but
-    for Hopper GPUs and above, we anticipate using the builder interface that CUTLASS provides in our future improvements.
+\myparab{FP16 inefficiency.} Our FP16 path is suboptimal (\S\ref{sec:fp16-memory-throughput})
+due to insufficient tuning.
+We anticipate addressing this gap with autotuned GEMM operators like cuBLASDx~\cite{cudx} or
+CUTLASS builders.
 
-    \item \textbf{Lack of backward pass and training support.} While this work focuses on inference,
-    enabling training requires fusing backward computation and gradient communication into the kernel.
-    Supporting this entails non-trivial changes to both memory bookkeeping and task descriptor definitions.
-    Nevertheless, it remains an exciting direction for extending this system to
-    fully support end-to-end training.
-\end{itemize}
+\myparab{Training support.} This work targets inference;
+enabling training will require fusing backward computation and gradient communication with new bookkeeping and
+task descriptors.
+
+
+
+

@@ -1,4 +1,4 @@
-\section{Experiments}
+\section{Evaluation}
 \label{sec:evaluation}
 We implement (\S\ref{sec:implementation}) and evaluate \sysname and evaluate across
 five metrics: \textbf{Forward Latency} (\S~\ref{subsec:forward-latency}),
@@ -20,14 +20,14 @@ We compare \sysname against several state-of-the-art MoE systems:
 (4) \textbf{Megatron-TE}: Megatron-LM with Transformer Engine~\cite{transformer-engine}.
 Comet relies on~\verb|cudaMemcpyPeerAsync|~\cite{fluxp2p}, while FasterMoE and Megatron-LM use NCCL exclusively for communication.
 %We also evaluate \sysname on a multi-node environment and discuss our findings in \S\ref{sec:multi-node-evaluation}.
-\subsection{Desiderata}\label{subsec:desiderata}
+
+\myparab{Desiderata}.
 We observe Comet exhibiting anomalously bad performance values at 8 GPUs,
 so we exclude their results from evaluations at 8 GPUs and only include for results at $\leq$
-4 GPUs.
-\textbf{Note} we evaluate \sysname using FP32 precision whereas all baselines use FP16.
-We do so because (1) no baseline supports FP32 and (2) time constraints prevent us from tuning our system
-to peak performance at FP16.
-Most importantly, this precision discrepancy disadvantages \sysname by doubling its
+4 GPUs. We evaluate \sysname using FP32 precision whereas all baselines use FP16.
+We do so because (1) of incomplete fp16 tuning (\S\ref{sec:fp16-memory-throughput})
+and (2) no baseline supports FP32.
+Note, this precision discrepancy disadvantages \sysname by doubling its
 communication volume and computational workload.
 \subsection{Forward Latency}\label{subsec:forward-latency}
 \begin{figure}[!h]
@@ -56,10 +56,9 @@ and \textbf{2.6}x over FasterMoE.
 The gains are even more pronounced at 8 GPUs
 where FlashDMoE maintains low latency, exhibiting up to \textbf{6.4}x speedup over baselines that
 degrade steeply due to increasing communication costs as token buffers increase proportionally.
-These results highlight FlashDMoE’s ability to scale token throughput without suffering from the communication
-penalties that plague other implementations.
+%These results highlight FlashDMoE’s ability to scale token throughput without suffering from the communication
+%penalties that plague other implementations.
 \subsection{GPU Utilization}\label{subsec:gpu-utilization}
-
 \begin{wrapfigure}{r}{0.5\textwidth}
     \vspace{-10pt}
     \centering
@@ -103,27 +102,27 @@ We evaluate the extent to which \sysname overlaps communication and computation 
 as the number of GPUs increases (Figure~\ref{fig:oe}).
 We note that most baselines fail to execute at a single GPU, hence why we use 2 GPUs as the reference point.
 We observe that Megatron-CUTLASS and Megatron-TE degrade significantly,
-with overlap efficiency dropping below 0.5 at $\geq 4$ GPUs. \sysname gives up to \textbf{3.88}x and
+with overlap efficiency dropping below 50\% at $\geq 4$ GPUs. \sysname gives up to \textbf{3.88}x and
 \textbf{4}x higher efficiency at 4 and 8 GPUs, respectively.
-Figure~\ref{fig:lng} further illuminates this efficiency, as \sysname shows stable forward latency growth,
-whereas baselines Megatron-CUTLASS and Megatron-TE experience approximately linear
-latency amplification while FasterMoE exhibits sublinear scaling.
-We attribute this suboptimal performance to straggler effects and exposed communication.
-In contrast, \sysname demonstrates uniform latency as expected since the workload per
-GPU is fixed in this weak scaling experiment.
-These results further corroborate that \sysname's actor-based design and asynchronous data movement
-achieve near-ideal overlap, even at scale.
-
+Figure~\ref{fig:lng} further illuminates this efficiency, as \sysname shows stable forward latency growth.
+These results corroborate that \sysname's actor-based design and asynchronous data movement
+achieve near-ideal overlap.
+%whereas baselines Megatron-CUTLASS and Megatron-TE experience approximately linear
+%latency amplification while FasterMoE exhibits sublinear scaling.
+%We attribute this suboptimal performance to exposed communication.
+%In contrast, \sysname demonstrates uniform latency as expected since the workload per
+%GPU is fixed in this weak scaling experiment.
+%These results corroborate that \sysname's actor-based design and asynchronous data movement
+%achieve near-ideal overlap.
 \subsection{Throughput}\label{subsec:throughput}
-\begin{wrapfigure}{r}{0.5\textwidth}
+\begin{wrapfigure}{r}{0.4\textwidth}
     \vspace{-15pt}
     \centering
-    \includegraphics[width=\linewidth, keepaspectratio]{flash_figs/throughput_8}
+    \includegraphics[width=0.9\linewidth, keepaspectratio]{flash_figs/throughput_8}
     % \caption{Throughput as the amount of GPUs increases. We compute throughput as $\frac{T * N_G}{latency}$, where $N_G$ is the number of GPUs.}
     \caption{Throughput when scaling the number of GPUs, computed as $\frac{T \times N_G}{\text{latency}}$.}
     \label{fig:thr}
 \end{wrapfigure}
-Throughput, measured in tokens per second (MTokens/s), reflects end-to-end system efficiency.
 As shown in Figure~\ref{fig:thr}, \sysname scales linearly with GPU count, reaching 17.7 MTokens/s at 8 GPUs.
 This is over \textbf{5.7}x higher than FasterMoE and \textbf{4.9}x higher than Megatron-TE and Megatron-CUTLASS\@.
 Notably, these results are achieved despite \emph{FlashDMoE operating entirely in FP32,
@@ -159,30 +158,3 @@ In contrast, baselines exhibit superlinear latency increases due to increased ke
 in-kernel dispatching allow it to sustain expert parallelism
 without incurring the communication and orchestration penalties seen in other systems.
 These results reinforce FlashDMoE’s scalability for ultra-sparse MoE configurations.
-
-\subsection{Memory Overhead}\label{sec:eval:memory}
-We measure the GPU memory required for the symmetric tensor $L$ and runtime bookkeeping state of \sysname.
-The memory overhead primarily depends on the tile size, expert capacity ($EC$), and the number of experts ($E$).
-Table~\ref{tab:memory-overhead} summarizes the memory overhead across recent MoE models~\cite{moonlight,grok,snowflake-arctic,qwen3,mixtral,deepseek} during inference, showing that \sysname maintains a modest and predictable memory footprint.
-In particular, the symmetric tensor ($ST$) accounts for at most 2.15\% additional memory relative to the total inference memory requirements.
-\begin{table}[!ht]
-    \centering
-    \caption{Memory overhead of \sysname (tile size $bM = 128$, $Size(T) = \text{Tokens} \times 4\text{KB}$).}
-    \label{tab:memory-overhead}
-    \small
-    \setlength{\tabcolsep}{5pt}
-    \renewcommand{\arraystretch}{0.9}
-    \begin{tabular}{ccccccccc}
-        \toprule
-        \textbf{Model} & \textbf{Params} & \textbf{S} & \textbf{E} & \textbf{H} & \textbf{I} & \textbf{ST (GB)} & \textbf{Model (GB)} & \textbf{Overhead (\%)} \\
-        \midrule
-        Moonlight-16B-A3B  & 16B  & 8K   & 64   & 2K   & 1.38K  & 0.25  & 59    & \textbf{0.49} \\
-        Grok-1             & 314B & 8K   & 8    & 6K   & 32K     & 0.75  & 1169  & \textbf{0.15} \\
-        Snowflake-Arctic   & 479B & 4K   & 128  & 7K   & 4.75K   & 1.75  & 1784  & \textbf{0.12} \\
-        Qwen3-235B-A22B    & 235B & 40K  & 128  & 4K   & 1.5K    & 3.00  & 875   & \textbf{0.38} \\
-        Mixtral 8x7B       & 47B  & 32K  & 8    & 4K   & 14K     & 2.00  & 175   & \textbf{2.15} \\
-        DeepSeek-V3        & 685B & 160K & 256  & 7K   & 2K      & 1.50  & 2551  & \textbf{0.11} \\
-        \bottomrule
-    \end{tabular}
-    \vspace{-0.4cm}
-\end{table}
