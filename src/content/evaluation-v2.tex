@@ -1,6 +1,6 @@
 \section{Evaluation}
 \label{sec:evaluation}
-We implement (\S\ref{sec:implementation}) and evaluate \sysname and evaluate across
+We implement (\S\ref{sec:implementation}) and evaluate \sysname across
 five metrics: \textbf{Forward Latency} (\S~\ref{subsec:forward-latency}),
 \textbf{GPU Utilization} (\S~\ref{subsec:gpu-utilization}),
 \textbf{Overlap Efficiency} (\S~\ref{subsec:overlap-efficiency}),
@@ -16,7 +16,7 @@ We use top-2 routing with a capacity factor of 1.0.
 We compare \sysname against several state-of-the-art MoE systems:
 (1) \textbf{Comet}~\cite{comet}, 
 (2) \textbf{FasterMoE}~\cite{fastermoe}, 
-(3) \textbf{Megatron-CUTLASS}~\cite{megatron-lm}, and
+(3) \textbf{Megatron-CUTLASS}~\cite{megatron}, and
 (4) \textbf{Megatron-TE}: Megatron-LM with Transformer Engine~\cite{transformer-engine}.
 Comet relies on~\verb|cudaMemcpyPeerAsync|~\cite{fluxp2p}, while FasterMoE and Megatron-LM use NCCL exclusively for communication.
 %We also evaluate \sysname on a multi-node environment and discuss our findings in \S\ref{sec:multi-node-evaluation}.
