@@ -43,9 +43,11 @@
         $Delay$ is the maximum difference between $t$ and $t_a$. Note $Delay$ is idle time.}
     \label{fig:straggler}
 \end{figure}
-Specifically, as shown in Figure~\ref{fig:straggler}, for distributed training of a 1.3B GPT-3 MoE model across
-32 A100 GPUs, we see P95 communication performance degradation of \textbf{1.32X} when compared to the mean actual kernel time
-from Figure~\ref{sub:raw_perl}.
+In Figure~\ref{fig:straggler}, we present empirical cumulative and raw distributions of
+\alltoall kernel runtime from distributed training of a 1.3B GPT-3 MoE model across
+32 A100 and 8 V100 GPUs. We use this result to motivate the severity and prevalence of straggler effects.
+In Figure~\ref{sub:raw_perl}, we observe P95
+communication performance degradation of \textbf{1.32X} when compared to the mean actual kernel time.
 This performance reduction is rather tame as the underlying hardware is a supercomputer well-tuned
 against ``software jitter''~\cite{nerscNetworkNERSC}.
 However, we observe a more severe p95 performance loss of \textbf{11X} in a single-node Virtual Machine (VM).
