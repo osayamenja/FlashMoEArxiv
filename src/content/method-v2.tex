@@ -181,18 +181,19 @@ Whereas, the expert-combine operation is formalized as:
 \subsection{Symmetric Tensor Layout for Inter-GPU Communication}\label{subsec:symmetric-tensor-layout}
 \begin{figure}[!ht]
     \centering
-    \begin{subfigure}{0.45\textwidth}
+    \begin{subfigure}{0.55\textwidth}
         \centering
         \includegraphics[width=\linewidth, keepaspectratio]{figures/mem_layout}
-        \caption{\emph{Symmetric Tensor Layout across 2 Expert-parallel Processes}.}
+        \caption{\emph{Layout across 2 Expert-parallel Processes}.}
         \label{fig:mem_layout}
     \end{subfigure}
-    \begin{subfigure}{0.25\textwidth}
+    \begin{subfigure}{0.325\textwidth}
         \centering
         \includegraphics[width=\linewidth, keepaspectratio]{figures/sm_big}
         \caption{\emph{State machine for DMA (top) and RDMA (bottom) communication.}}
         \label{fig:sm}
-    \end{subfigure}\label{fig:symmt}
+    \end{subfigure}\caption{Symmetric Tensor Layout}
+    \label{fig:symmt}
 \end{figure}
 
 Within a single GPU device, the actors in \sysname communicate through the GPU's memory subsystem.
